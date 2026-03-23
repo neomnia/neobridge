@@ -11,6 +11,23 @@ import { ensureStripeCustomer, updateStripeCustomerMetadata, deleteStripeCustome
 
 export async function getUsers() {
   try {
+    // Require admin authentication
+    const caller = await getCurrentUser()
+    if (!caller) {
+      return { success: false, error: "Authentication required" }
+    }
+
+    const callerRoles = await db
+      .select({ name: roles.name })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, caller.userId))
+
+    const isAdmin = callerRoles.some(r => r.name === "admin" || r.name === "super_admin")
+    if (!isAdmin) {
+      return { success: false, error: "Permission denied" }
+    }
+
     const allUsers = await db.query.users.findMany({
       with: {
         company: true,
@@ -31,14 +48,41 @@ export async function getUsers() {
 
 export async function createUser(formData: FormData) {
   try {
+    // ── Authorization: only admins can create users ───────────────────────
+    const caller = await getCurrentUser()
+    if (!caller) {
+      return { success: false, error: "Authentication required" }
+    }
+
+    const callerRolesData = await db
+      .select({ name: roles.name })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, caller.userId))
+
+    const callerRoleNames = callerRolesData.map(r => r.name)
+    const isAdmin = callerRoleNames.includes("admin") || callerRoleNames.includes("super_admin")
+
+    if (!isAdmin) {
+      return { success: false, error: "Permission denied: admin role required" }
+    }
+
+    const targetRoleName = formData.get("role") as string
+
+    // Only super_admin can create other admins / super_admins
+    const isPlatformRole = targetRoleName === "admin" || targetRoleName === "super_admin"
+    const isSuperAdmin = callerRoleNames.includes("super_admin")
+    if (isPlatformRole && !isSuperAdmin) {
+      return { success: false, error: "Only super admins can create admin accounts" }
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     const email = formData.get("email") as string
     const username = formData.get("username") as string
     const firstName = formData.get("firstName") as string
     const lastName = formData.get("lastName") as string
     const password = formData.get("password") as string
-    const roleName = formData.get("role") as string
     const companyIdRaw = formData.get("companyId") as string
-    // Handle "none" value as null for companyId
     const companyId = companyIdRaw && companyIdRaw !== "none" ? companyIdRaw : null
 
     if (!email || !firstName || !lastName || !password) {
@@ -61,7 +105,7 @@ export async function createUser(formData: FormData) {
 
     const hashedPassword = await hashPassword(password)
 
-    // Create user
+    // Create user — mark as active and email verified (admin-created accounts skip email flow)
     const [newUser] = await db.insert(users).values({
       email,
       username: username || null,
@@ -69,12 +113,14 @@ export async function createUser(formData: FormData) {
       lastName,
       password: hashedPassword,
       companyId,
+      isActive: true,
+      emailVerified: new Date(), // Admin-created → no email verification needed
     }).returning()
 
     // Assign role if provided
-    if (roleName) {
+    if (targetRoleName) {
       const role = await db.query.roles.findFirst({
-        where: eq(roles.name, roleName)
+        where: eq(roles.name, targetRoleName)
       })
 
       if (role) {
@@ -169,8 +215,23 @@ export async function setDpo(userId: string) {
 export async function deleteUser(userId: string) {
   try {
     const currentUser = await getCurrentUser()
-    if (currentUser?.userId === userId) {
+    if (!currentUser) {
+      return { success: false, error: "Authentication required" }
+    }
+    if (currentUser.userId === userId) {
       return { success: false, error: "You cannot delete your own account" }
+    }
+
+    // Require admin role
+    const callerRoles = await db
+      .select({ name: roles.name })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, currentUser.userId))
+
+    const isAdmin = callerRoles.some(r => r.name === "admin" || r.name === "super_admin")
+    if (!isAdmin) {
+      return { success: false, error: "Permission denied: admin role required" }
     }
 
     const userToDelete = await db.query.users.findFirst({
@@ -287,8 +348,25 @@ export async function deleteUser(userId: string) {
 export async function updateUserRole(userId: string, roleName: string) {
   try {
     const currentUser = await getCurrentUser()
-    if (currentUser?.userId === userId) {
+    if (!currentUser) return { success: false, error: "Authentication required" }
+    if (currentUser.userId === userId) {
       return { success: false, error: "You cannot change your own role" }
+    }
+
+    // Require admin; only super_admin can assign platform roles
+    const callerRoles = await db
+      .select({ name: roles.name })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, currentUser.userId))
+
+    const isAdmin = callerRoles.some(r => r.name === "admin" || r.name === "super_admin")
+    if (!isAdmin) return { success: false, error: "Permission denied: admin role required" }
+
+    const isPlatformRole = roleName === "admin" || roleName === "super_admin"
+    const isSuperAdmin = callerRoles.some(r => r.name === "super_admin")
+    if (isPlatformRole && !isSuperAdmin) {
+      return { success: false, error: "Only super admins can assign admin roles" }
     }
 
     const role = await db.query.roles.findFirst({
@@ -299,14 +377,8 @@ export async function updateUserRole(userId: string, roleName: string) {
       return { success: false, error: "Role not found" }
     }
 
-    // Remove existing roles (simplified for single role per user scenario, though schema supports multiple)
     await db.delete(userRoles).where(eq(userRoles.userId, userId))
-
-    // Add new role
-    await db.insert(userRoles).values({
-      userId,
-      roleId: role.id
-    })
+    await db.insert(userRoles).values({ userId, roleId: role.id })
 
     revalidatePath("/admin/users")
     return { success: true, message: "User role updated successfully" }
@@ -359,8 +431,19 @@ export async function bulkUpdateUserStatus(userIds: string[], isActive: boolean)
     }
 
     const currentUser = await getCurrentUser()
-    if (currentUser && userIds.includes(currentUser.userId)) {
+    if (!currentUser) return { success: false, error: "Authentication required" }
+    if (userIds.includes(currentUser.userId)) {
       return { success: false, error: "You cannot change your own status" }
+    }
+
+    const callerRoles = await db
+      .select({ name: roles.name })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, currentUser.userId))
+
+    if (!callerRoles.some(r => r.name === "admin" || r.name === "super_admin")) {
+      return { success: false, error: "Permission denied: admin role required" }
     }
 
     const updatedUsers = await Promise.all(
@@ -392,8 +475,19 @@ export async function bulkUpdateUserStatus(userIds: string[], isActive: boolean)
 export async function updateUserStatus(userId: string, isActive: boolean) {
   try {
     const currentUser = await getCurrentUser()
-    if (currentUser?.userId === userId) {
+    if (!currentUser) return { success: false, error: "Authentication required" }
+    if (currentUser.userId === userId) {
       return { success: false, error: "You cannot change your own status" }
+    }
+
+    const callerRoles = await db
+      .select({ name: roles.name })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, currentUser.userId))
+
+    if (!callerRoles.some(r => r.name === "admin" || r.name === "super_admin")) {
+      return { success: false, error: "Permission denied: admin role required" }
     }
 
     const [updatedUser] = await db
@@ -434,6 +528,21 @@ export async function updateUser(userId: string, data: {
   companyId?: string | null
 }) {
   try {
+    // Allow users to update their own profile, OR admins to update any user
+    const caller = await getCurrentUser()
+    if (!caller) return { success: false, error: "Authentication required" }
+
+    if (caller.userId !== userId) {
+      const callerRoles = await db
+        .select({ name: roles.name })
+        .from(userRoles)
+        .innerJoin(roles, eq(userRoles.roleId, roles.id))
+        .where(eq(userRoles.userId, caller.userId))
+
+      const isAdmin = callerRoles.some(r => r.name === "admin" || r.name === "super_admin")
+      if (!isAdmin) return { success: false, error: "Permission denied" }
+    }
+
     // Get current user data to check for changes
     const currentUserData = await db.query.users.findFirst({
       where: eq(users.id, userId)
