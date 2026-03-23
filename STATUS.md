@@ -9,6 +9,21 @@
 
 ## 🚨 Corrections Récentes
 
+### 23 mars 2026 - Correction Erreur Build Vercel (LogsClient)
+
+**Contexte** : Le déploiement Vercel échouait avec une erreur "Module not found: Can't resolve '@/app/(private)/admin/logs/logs-client'". Le fichier `logs-client.tsx` était manquant alors qu'il était importé dans `app/(private)/admin/settings/page.tsx`.
+
+**Changements** :
+
+- ✅ **Création de `LogsClient`** : implementation d'un composant client pour afficher les logs système via `getSystemLogs`.
+- ✅ **Correction Import** : Le fichier est maintenant présent à l'emplacement attendu.
+
+**Fichiers modifiés** :
+
+- `app/(private)/admin/logs/logs-client.tsx` (nouveau fichier)
+
+**Impact** : Le build Vercel devrait passer avec succès et l'onglet "System Logs" dans les paramètres admin est fonctionnel.
+
 ### Synchronisation Destructive `main` + Modèle de versionning (23 mars 2026)
 
 **Contexte** : Validation finale demandée sans merge, avec alignement strict de `main` sur la branche source et formalisation d'un modèle de versionning.
