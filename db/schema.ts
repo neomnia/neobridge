@@ -1482,3 +1482,78 @@ export type NewLlmUsageLog = typeof llmUsageLogs.$inferInsert
 export type OAuthConnection = typeof oauthConnections.$inferSelect
 export type NewOAuthConnection = typeof oauthConnections.$inferInsert
 
+// =============================================================================
+// DEV PROJECTS - Managed development projects (Vercel + GitHub + Cloudflare + Notion)
+// =============================================================================
+
+export const devProjectStatusEnum = pgEnum('dev_project_status', [
+  'draft',      // Just created, setup not started
+  'setting_up', // Setup in progress (creating Vercel project, GitHub repo, etc.)
+  'active',     // Fully set up, in development
+  'paused',     // Temporarily paused
+  'archived',   // Archived project
+])
+
+/**
+ * Dev Projects - Development projects managed via integrated services
+ * Each project links a Vercel project, GitHub repo, Cloudflare domain, and Notion workspace page
+ */
+export const devProjects = pgTable("dev_projects", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(), // URL-safe identifier, e.g. "my-project"
+  description: text("description"),
+  status: devProjectStatusEnum("status").default('draft').notNull(),
+
+  // Owner (admin user who created this project)
+  ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+
+  // Vercel integration
+  vercelProjectId: text("vercel_project_id"),
+  vercelProjectName: text("vercel_project_name"),
+  vercelDeploymentUrl: text("vercel_deployment_url"),
+  vercelTeamId: text("vercel_team_id"),
+
+  // GitHub integration
+  githubRepoId: text("github_repo_id"),
+  githubRepoFullName: text("github_repo_full_name"), // e.g. "org/repo-name"
+  githubRepoUrl: text("github_repo_url"),
+  githubDefaultBranch: text("github_default_branch").default('main'),
+  githubIsPrivate: boolean("github_is_private").default(true),
+
+  // Cloudflare domain
+  cloudflareDomain: text("cloudflare_domain"),       // e.g. "myproject.com"
+  cloudflareZoneId: text("cloudflare_zone_id"),
+  domainVerified: boolean("domain_verified").default(false),
+  domainConnectedToVercel: boolean("domain_connected_to_vercel").default(false),
+
+  // Notion
+  notionPageId: text("notion_page_id"),
+  notionPageUrl: text("notion_page_url"),
+
+  // Setup state — track which steps are done
+  setupState: jsonb("setup_state").$type<{
+    vercelCreated?: boolean;
+    githubCreated?: boolean;
+    domainLinked?: boolean;
+    notionCreated?: boolean;
+    errors?: Record<string, string>;
+  }>().default({}),
+
+  // Extra metadata (framework, region, tags, etc.)
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+})
+
+export const devProjectsRelations = relations(devProjects, ({ one }) => ({
+  owner: one(users, {
+    fields: [devProjects.ownerId],
+    references: [users.id],
+  }),
+}))
+
+export type DevProject = typeof devProjects.$inferSelect
+export type NewDevProject = typeof devProjects.$inferInsert
+
