@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Include SQL migration files in Vercel serverless bundles for the db-setup endpoint
+  outputFileTracingIncludes: {
+    '/api/admin/db-setup': ['./drizzle/**/*.sql', './drizzle/meta/_journal.json'],
+  },
   transpilePackages: ['lago-javascript-client'],
   typescript: {
     ignoreBuildErrors: true,
