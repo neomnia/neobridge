@@ -2,21 +2,7 @@ import { notFound } from 'next/navigation'
 import { LayoutDashboard, Kanban, Bot, ListTodo, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import type { ZohoProject } from '@/lib/zoho'
-
-async function fetchProject(id: string): Promise<ZohoProject | null> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const res = await fetch(
-      `${baseUrl}/api/zoho?action=getProject&projectId=${id}`,
-      { cache: 'no-store' }
-    )
-    if (!res.ok) return null
-    return res.json()
-  } catch {
-    return null
-  }
-}
+import { getZohoProject } from '@/lib/zoho-data'
 
 const STATUS_LABEL: Record<string, string> = {
   active:    'Actif',
@@ -40,14 +26,13 @@ export default async function ProjectLayout({
   params: Promise<{ projectId: string }>
 }) {
   const { projectId } = await params
-  const project = await fetchProject(projectId)
+  const project = await getZohoProject(projectId)
   if (!project) notFound()
 
   const base = `/dashboard/${projectId}`
 
   return (
     <div className="space-y-0">
-      {/* Project header */}
       <div className="border-b pb-4 mb-6">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -67,7 +52,6 @@ export default async function ProjectLayout({
           </Badge>
         </div>
 
-        {/* Tab nav */}
         <nav className="flex gap-1 mt-4 flex-wrap">
           {tabNav.map(({ label, href, icon: Icon }) => (
             <Link

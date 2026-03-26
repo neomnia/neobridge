@@ -1,20 +1,9 @@
 import { SprintPlanner } from '@/components/neobridge/sprint/SprintPlanner'
-import { type ZohoTask } from '@/lib/zoho'
-
-async function fetchTasks(projectId: string): Promise<ZohoTask[]> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/zoho?action=listTasks&projectId=${projectId}`, { cache: 'no-store' })
-    if (!res.ok) return []
-    return res.json()
-  } catch {
-    return []
-  }
-}
+import { listZohoTasks } from '@/lib/zoho-data'
 
 export default async function SprintPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params
-  const tasks = await fetchTasks(projectId)
+  const tasks = await listZohoTasks(projectId)
 
   return (
     <div className="space-y-4">

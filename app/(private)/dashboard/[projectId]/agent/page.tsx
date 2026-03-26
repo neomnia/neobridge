@@ -1,19 +1,8 @@
 import { AgentConsole } from '@/components/neobridge/agent/AgentConsole'
-import { type ZohoProject } from '@/lib/zoho'
-
-async function fetchProjects(): Promise<ZohoProject[]> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/zoho?action=listProjects`, { next: { revalidate: 300 } })
-    if (!res.ok) return []
-    return res.json()
-  } catch {
-    return []
-  }
-}
+import { listZohoProjects } from '@/lib/zoho-data'
 
 export default async function AgentPage() {
-  const projects = await fetchProjects()
+  const projects = await listZohoProjects()
 
   return (
     <div className="flex flex-col h-full space-y-4">

@@ -2,36 +2,11 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ImpersonationBanner } from '@/components/admin/impersonation-banner'
+import { listZohoProjects } from '@/lib/zoho-data'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import type { ZohoProject } from '@/lib/zoho'
 
 export const metadata = { title: 'Mes projets — NeoBridge' }
-
-async function fetchProjects(): Promise<ZohoProject[]> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/zoho?action=listProjects`, {
-      next: { revalidate: 60 },
-    })
-    if (!res.ok) return []
-    return res.json()
-  } catch {
-    return []
-  }
-}
-
-async function fetchActiveWorkflows(): Promise<string[]> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/temporal/active`, { cache: 'no-store' })
-    if (!res.ok) return []
-    const data = await res.json()
-    return data.map((w: { projectId?: string }) => w.projectId).filter(Boolean)
-  } catch {
-    return []
-  }
-}
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
   active:    'default',
@@ -46,7 +21,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export default async function DashboardPage() {
-  const [projects, activeProjects] = await Promise.all([fetchProjects(), fetchActiveWorkflows()])
+  const projects = await listZohoProjects()
 
   return (
     <div className="space-y-6">
@@ -83,17 +58,9 @@ export default async function DashboardPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {activeProjects.includes(project.id) && (
-                        <span
-                          className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"
-                          title="Agent actif"
-                        />
-                      )}
-                      <Badge variant={STATUS_VARIANT[project.status] ?? 'secondary'}>
-                        {STATUS_LABEL[project.status] ?? project.status}
-                      </Badge>
-                    </div>
+                    <Badge variant={STATUS_VARIANT[project.status] ?? 'secondary'} className="shrink-0">
+                      {STATUS_LABEL[project.status] ?? project.status}
+                    </Badge>
                   </div>
                 </CardHeader>
                 {project.last_modified_time && (

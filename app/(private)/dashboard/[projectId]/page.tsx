@@ -2,37 +2,14 @@ import { StatsGrid } from '@/components/neobridge/dashboard/StatsGrid'
 import { MilestoneProgress } from '@/components/neobridge/dashboard/MilestoneProgress'
 import { AgentStatus } from '@/components/neobridge/dashboard/AgentStatus'
 import { RecentActivity } from '@/components/neobridge/dashboard/RecentActivity'
-import { type ZohoTask, type ZohoMilestone } from '@/lib/zoho'
-
-async function fetchTasks(projectId: string): Promise<ZohoTask[]> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/zoho?action=listTasks&projectId=${projectId}`, {
-      next: { revalidate: 60 },
-    })
-    if (!res.ok) return []
-    return res.json()
-  } catch {
-    return []
-  }
-}
-
-async function fetchMilestones(projectId: string): Promise<ZohoMilestone[]> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/zoho?action=listMilestones&projectId=${projectId}`, {
-      next: { revalidate: 60 },
-    })
-    if (!res.ok) return []
-    return res.json()
-  } catch {
-    return []
-  }
-}
+import { listZohoTasks, listZohoMilestones } from '@/lib/zoho-data'
 
 export default async function ProjectPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params
-  const [tasks, milestones] = await Promise.all([fetchTasks(projectId), fetchMilestones(projectId)])
+  const [tasks, milestones] = await Promise.all([
+    listZohoTasks(projectId),
+    listZohoMilestones(projectId),
+  ])
 
   return (
     <div className="space-y-6">
