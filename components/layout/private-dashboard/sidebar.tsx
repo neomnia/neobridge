@@ -61,10 +61,10 @@ const adminItems = [
 ]
 
 const neobridgeItems = [
-  { name: "Dashboard", href: "/neobridge/dashboard", icon: LayoutDashboard },
-  { name: "Kanban", href: "/neobridge/kanban", icon: Kanban },
-  { name: "Agent Console", href: "/neobridge/agent", icon: Bot },
-  { name: "Sprint Planner", href: "/neobridge/sprint", icon: ListTodo },
+  { name: "Dashboard", href: "/dashboard/neobridge/dashboard", icon: LayoutDashboard },
+  { name: "Kanban", href: "/dashboard/neobridge/kanban", icon: Kanban },
+  { name: "Agent Console", href: "/dashboard/neobridge/agent", icon: Bot },
+  { name: "Sprint Planner", href: "/dashboard/neobridge/sprint", icon: ListTodo },
 ]
 
 // Support sub-menu items (no icons for sub-items as per TailAdmin design)
@@ -82,7 +82,7 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
   const pathname = usePathname()
   const { isAdmin, isSuperAdmin, isLoading } = useUser()
   const { siteName, logo, logoDisplayMode } = usePlatformConfig()
-  const [isNeobridgeOpen, setIsNeobridgeOpen] = useState(pathname.startsWith("/neobridge"))
+  const [isNeobridgeOpen, setIsNeobridgeOpen] = useState(pathname.startsWith("/dashboard/neobridge"))
   const [isAdminOpen, setIsAdminOpen] = useState(
     pathname.startsWith("/admin") || pathname.startsWith("/dashboard/admin"),
   )
