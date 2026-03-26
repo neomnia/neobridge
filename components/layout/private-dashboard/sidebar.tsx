@@ -24,9 +24,6 @@ import {
   MessageSquare,
   Rocket,
   Headphones,
-  Kanban,
-  Bot,
-  ListTodo,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -39,10 +36,7 @@ import { useUser } from "@/lib/contexts/user-context"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
 
 const navItems = [
-  { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Kanban", href: "/dashboard/kanban", icon: Kanban },
-  { name: "Agent Console", href: "/dashboard/agent", icon: Bot },
-  { name: "Sprint Planner", href: "/dashboard/sprint", icon: ListTodo },
+  { name: "Projets", href: "/dashboard", icon: Home },
   { name: "Payments", href: "/dashboard/payments", icon: CreditCard },
   { name: "Profile", href: "/dashboard/profile", icon: User },
   { name: "Support", href: "/dashboard/support", icon: HelpCircle },

@@ -64,7 +64,7 @@ export function SiteHeader({ user }: SiteHeaderProps) {
             <ThemeToggle />
             <div className="hidden md:flex space-x-1">
               {user ? (
-                <Link href="/dashboard/neobridge/dashboard">
+                <Link href="/dashboard">
                   <Button variant="default" size="sm" className="gap-2">
                     <Lock className="h-4 w-4" />
                     App

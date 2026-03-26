@@ -1623,3 +1623,47 @@ export type NewLlmUsageLog = typeof llmUsageLogs.$inferInsert
 export type OAuthConnection = typeof oauthConnections.$inferSelect
 export type NewOAuthConnection = typeof oauthConnections.$inferInsert
 
+// =============================================================================
+// NEOBRIDGE — Projets & Connecteurs
+// =============================================================================
+
+export const projectStatusEnum = pgEnum('project_status', ['active', 'archived', 'completed'])
+
+export const connectorTypeEnum = pgEnum('connector_type', [
+  'vercel', 'github', 'zoho', 'railway', 'scaleway', 'temporal', 'notion',
+])
+
+export const projects = pgTable("projects", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: projectStatusEnum("status").default('active').notNull(),
+  stack: text("stack").array(),
+  companyId: uuid("company_id").references(() => companies.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+})
+
+export const projectConnectors = pgTable("project_connectors", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  type: connectorTypeEnum("type").notNull(),
+  label: text("label").notNull(),
+  config: jsonb("config").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+})
+
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  company: one(companies, { fields: [projects.companyId], references: [companies.id] }),
+  connectors: many(projectConnectors),
+}))
+
+export const projectConnectorsRelations = relations(projectConnectors, ({ one }) => ({
+  project: one(projects, { fields: [projectConnectors.projectId], references: [projects.id] }),
+}))
+
+export type Project = typeof projects.$inferSelect
+export type NewProject = typeof projects.$inferInsert
+export type ProjectConnector = typeof projectConnectors.$inferSelect
+export type NewProjectConnector = typeof projectConnectors.$inferInsert
+
