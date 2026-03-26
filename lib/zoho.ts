@@ -85,4 +85,7 @@ export interface ZohoProject {
   id: string
   name: string
   status: string
+  description?: string
+  last_modified_time?: string
+  owner_name?: string
 }

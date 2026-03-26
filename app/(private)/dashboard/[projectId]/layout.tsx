@@ -2,12 +2,15 @@ import { notFound } from 'next/navigation'
 import { LayoutDashboard, Kanban, Bot, ListTodo, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import type { Project } from '@/db/schema'
+import type { ZohoProject } from '@/lib/zoho'
 
-async function fetchProject(id: string): Promise<Project | null> {
+async function fetchProject(id: string): Promise<ZohoProject | null> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/projects/${id}`, { cache: 'no-store' })
+    const res = await fetch(
+      `${baseUrl}/api/zoho?action=getProject&projectId=${id}`,
+      { cache: 'no-store' }
+    )
     if (!res.ok) return null
     return res.json()
   } catch {
@@ -15,17 +18,18 @@ async function fetchProject(id: string): Promise<Project | null> {
   }
 }
 
-const statusLabel: Record<string, string> = {
-  active: 'Actif',
+const STATUS_LABEL: Record<string, string> = {
+  active:    'Actif',
   completed: 'Terminé',
-  archived: 'Archivé',
+  archived:  'Archivé',
 }
 
 const tabNav = [
-  { label: 'Vue d\'ensemble', href: '', icon: LayoutDashboard },
-  { label: 'Kanban', href: '/kanban', icon: Kanban },
-  { label: 'Agent', href: '/agent', icon: Bot },
-  { label: 'Sprint', href: '/sprint', icon: ListTodo },
+  { label: "Vue d'ensemble", href: '',          icon: LayoutDashboard },
+  { label: 'Kanban',         href: '/kanban',   icon: Kanban },
+  { label: 'Agent',          href: '/agent',    icon: Bot },
+  { label: 'Sprint',         href: '/sprint',   icon: ListTodo },
+  { label: 'Paramètres',     href: '/settings', icon: Settings },
 ]
 
 export default async function ProjectLayout({
@@ -48,7 +52,9 @@ export default async function ProjectLayout({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <Link href="/dashboard" className="hover:text-foreground transition-colors">Projets</Link>
+              <Link href="/dashboard" className="hover:text-foreground transition-colors">
+                Projets
+              </Link>
               <span>/</span>
               <span className="text-foreground font-medium">{project.name}</span>
             </div>
@@ -56,16 +62,13 @@ export default async function ProjectLayout({
               <p className="text-sm text-muted-foreground">{project.description}</p>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {project.stack?.map(t => (
-              <Badge key={t} variant="outline" className="text-xs">{t}</Badge>
-            ))}
-            <Badge variant="secondary">{statusLabel[project.status]}</Badge>
-          </div>
+          <Badge variant="secondary" className="shrink-0">
+            {STATUS_LABEL[project.status] ?? project.status}
+          </Badge>
         </div>
 
         {/* Tab nav */}
-        <nav className="flex gap-1 mt-4">
+        <nav className="flex gap-1 mt-4 flex-wrap">
           {tabNav.map(({ label, href, icon: Icon }) => (
             <Link
               key={href}

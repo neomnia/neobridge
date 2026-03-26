@@ -24,7 +24,22 @@ const MOCK_MILESTONES = [
 ]
 
 const MOCK_PROJECTS = [
-  { id: "p1", name: "NeoBridge Platform", status: "active" },
+  {
+    id: "p1",
+    name: "NeoBridge Platform",
+    status: "active",
+    description: "Plateforme DevOps unifiée — Vercel, GitHub, Zoho, Temporal",
+    last_modified_time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    owner_name: "Claude",
+  },
+  {
+    id: "p2",
+    name: "NeoSaaS Template",
+    status: "active",
+    description: "Boilerplate Next.js 15 avec auth, paiements et admin",
+    last_modified_time: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    owner_name: "Charles",
+  },
 ]
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -41,7 +56,7 @@ export async function GET(req: NextRequest) {
   const projectId = searchParams.get("projectId") ?? process.env.ZOHO_DEFAULT_PROJECT_ID ?? ""
 
   if (MOCK || !process.env.ZOHO_CLIENT_ID) {
-    return handleMock(action)
+    return handleMock(action, projectId)
   }
 
   try {
@@ -60,6 +75,11 @@ export async function GET(req: NextRequest) {
         const res = await zohoFetch(`/projects/${projectId}/milestones/`)
         const data = await res.json()
         return NextResponse.json(data.milestones ?? [])
+      }
+      case "getProject": {
+        const res = await zohoFetch(`/projects/${projectId}/`)
+        const data = await res.json()
+        return NextResponse.json(data.projects?.[0] ?? null)
       }
       case "getTask": {
         const taskId = searchParams.get("taskId")
@@ -117,10 +137,14 @@ export async function PUT(req: NextRequest) {
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
-function handleMock(action: string | null) {
+function handleMock(action: string | null, projectId?: string) {
   switch (action) {
-    case "listProjects": return NextResponse.json(MOCK_PROJECTS)
-    case "listTasks":    return NextResponse.json(MOCK_TASKS)
+    case "listProjects":  return NextResponse.json(MOCK_PROJECTS)
+    case "getProject": {
+      const p = MOCK_PROJECTS.find(p => p.id === projectId) ?? MOCK_PROJECTS[0]
+      return NextResponse.json(p)
+    }
+    case "listTasks":     return NextResponse.json(MOCK_TASKS)
     case "listMilestones": return NextResponse.json(MOCK_MILESTONES)
     default: return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
   }
