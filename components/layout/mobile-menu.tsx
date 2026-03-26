@@ -51,14 +51,17 @@ export function MobileMenu({ user }: MobileMenuProps) {
             <Link href="/brand" className="text-lg font-medium hover:text-brand">
               Brand
             </Link>
+            <Link href="/neobridge/dashboard" className="text-lg font-medium hover:text-brand">
+              App
+            </Link>
           </nav>
 
           <div className="flex flex-col gap-2 mt-4">
             {user ? (
-              <Link href="/dashboard">
+              <Link href="/neobridge/dashboard">
                 <Button className="w-full gap-2">
                   <Lock className="h-4 w-4" />
-                  Dashboard
+                  Open App
                 </Button>
               </Link>
             ) : (
