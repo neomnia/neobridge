@@ -24,8 +24,6 @@ import {
   MessageSquare,
   Rocket,
   Headphones,
-  Layers,
-  LayoutDashboard,
   Kanban,
   Bot,
   ListTodo,
@@ -41,11 +39,12 @@ import { useUser } from "@/lib/contexts/user-context"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
 
 const navItems = [
-  { name: "Overview", href: "/dashboard", icon: Home },
+  { name: "Dashboard", href: "/dashboard", icon: Home },
+  { name: "Kanban", href: "/dashboard/kanban", icon: Kanban },
+  { name: "Agent Console", href: "/dashboard/agent", icon: Bot },
+  { name: "Sprint Planner", href: "/dashboard/sprint", icon: ListTodo },
   { name: "Payments", href: "/dashboard/payments", icon: CreditCard },
-  { name: "Company Management", href: "/dashboard/company-management", icon: Building2 },
   { name: "Profile", href: "/dashboard/profile", icon: User },
-  { name: "Chat", href: "/dashboard/chat", icon: MessageSquare },
   { name: "Support", href: "/dashboard/support", icon: HelpCircle },
 ]
 
@@ -58,13 +57,6 @@ const adminItems = [
   { name: "API Management", href: "/admin/api", icon: Key, superAdminOnly: false },
   { name: "Mail Management", href: "/admin/mail", icon: Mail, superAdminOnly: false },
   { name: "Legal & Compliance", href: "/admin/legal", icon: FileText, superAdminOnly: false },
-]
-
-const neobridgeItems = [
-  { name: "Dashboard", href: "/dashboard/neobridge/dashboard", icon: LayoutDashboard },
-  { name: "Kanban", href: "/dashboard/neobridge/kanban", icon: Kanban },
-  { name: "Agent Console", href: "/dashboard/neobridge/agent", icon: Bot },
-  { name: "Sprint Planner", href: "/dashboard/neobridge/sprint", icon: ListTodo },
 ]
 
 // Support sub-menu items (no icons for sub-items as per TailAdmin design)
@@ -82,7 +74,6 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
   const pathname = usePathname()
   const { isAdmin, isSuperAdmin, isLoading } = useUser()
   const { siteName, logo, logoDisplayMode } = usePlatformConfig()
-  const [isNeobridgeOpen, setIsNeobridgeOpen] = useState(pathname.startsWith("/dashboard/neobridge"))
   const [isAdminOpen, setIsAdminOpen] = useState(
     pathname.startsWith("/admin") || pathname.startsWith("/dashboard/admin"),
   )
@@ -186,67 +177,6 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
             }
             return linkContent
           })}
-
-          {/* NeoBridge section */}
-          {isCollapsed ? (
-            <div className="pt-2 border-t mt-2 space-y-1">
-              {neobridgeItems.map((item) => {
-                const Icon = item.icon
-                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-                return (
-                  <Tooltip key={item.href}>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={item.href}
-                        onClick={handleLinkClick}
-                        className={cn(
-                          "flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                          isActive
-                            ? "bg-brand text-white"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">{item.name}</TooltipContent>
-                  </Tooltip>
-                )
-              })}
-            </div>
-          ) : (
-            <Collapsible open={isNeobridgeOpen} onOpenChange={setIsNeobridgeOpen} className="mt-2 border-t pt-2">
-              <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                <div className="flex items-center gap-3">
-                  <Layers className="h-5 w-5" />
-                  <span>NeoBridge</span>
-                </div>
-                <ChevronDown className={cn("h-4 w-4 transition-transform", isNeobridgeOpen && "rotate-180")} />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-1 space-y-1 pl-6">
-                {neobridgeItems.map((item) => {
-                  const Icon = item.icon
-                  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={handleLinkClick}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-brand text-white"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {item.name}
-                    </Link>
-                  )
-                })}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
 
           {!isLoading && isAdmin && (
             <>
