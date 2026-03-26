@@ -45,7 +45,7 @@ export function SiteHeader({ user }: SiteHeaderProps) {
             {!isDemo && <MobileMenu user={user} />}
             <div className="hidden md:flex items-center space-x-2 mr-2">
               <Link
-                href="https://www.linkedin.com/company/109552979/admin/dashboard/"
+                href="https://www.linkedin.com/company/neomnia"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground transition-colors"
@@ -53,7 +53,7 @@ export function SiteHeader({ user }: SiteHeaderProps) {
                 <Linkedin className="h-5 w-5" />
               </Link>
               <Link
-                href="https://github.com/neosaastech"
+                href="https://github.com/neomnia"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground transition-colors"
