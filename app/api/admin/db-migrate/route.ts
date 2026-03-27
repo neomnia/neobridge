@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const expected = process.env.DB_RESET_SECRET ?? 'npg_YGFw5lp9IcAH'
-  if (body.secret !== expected) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const expected = process.env.DB_RESET_SECRET
+  if (!expected || body.secret !== expected) {
+    return NextResponse.json({ error: 'Unauthorized — set DB_RESET_SECRET env var to use this endpoint' }, { status: 401 })
   }
 
   const rawUrl = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL
