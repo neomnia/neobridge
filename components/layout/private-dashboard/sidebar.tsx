@@ -24,6 +24,10 @@ import {
   MessageSquare,
   Rocket,
   Headphones,
+  Kanban,
+  Bot,
+  ListTodo,
+  Layers,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -34,6 +38,22 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { toast } from "sonner"
 import { useUser } from "@/lib/contexts/user-context"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
+
+const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods"])
+
+function getActiveProjectId(pathname: string): string | null {
+  const m = pathname.match(/^\/dashboard\/([^/]+)/)
+  if (!m) return null
+  return RESERVED.has(m[1]) ? null : m[1]
+}
+
+const projectSubItems = [
+  { name: "Vue d'ensemble", href: "",         icon: Layers },
+  { name: "Kanban",          href: "/kanban",  icon: Kanban },
+  { name: "Agent",           href: "/agent",   icon: Bot },
+  { name: "Sprint",          href: "/sprint",  icon: ListTodo },
+  { name: "Paramètres",      href: "/settings",icon: Settings },
+]
 
 const navItems = [
   { name: "Projets", href: "/dashboard", icon: Home },
@@ -68,6 +88,8 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
   const pathname = usePathname()
   const { isAdmin, isSuperAdmin, isLoading } = useUser()
   const { siteName, logo, logoDisplayMode } = usePlatformConfig()
+  const activeProjectId = getActiveProjectId(pathname)
+  const [isProjectOpen, setIsProjectOpen] = useState(!!activeProjectId)
   const [isAdminOpen, setIsAdminOpen] = useState(
     pathname.startsWith("/admin") || pathname.startsWith("/dashboard/admin"),
   )
@@ -171,6 +193,43 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
             }
             return linkContent
           })}
+
+          {/* ── Projet actif — sous-menu contextuel ─────────────────────── */}
+          {activeProjectId && !isCollapsed && (
+            <Collapsible open={isProjectOpen} onOpenChange={setIsProjectOpen}>
+              <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                <div className="flex items-center gap-3">
+                  <Layers className="h-5 w-5" />
+                  <span className="truncate max-w-[120px]">Projet actif</span>
+                </div>
+                <ChevronDown className={cn("h-4 w-4 transition-transform shrink-0", isProjectOpen && "rotate-180")} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-1 space-y-1 pl-6">
+                {projectSubItems.map(({ name, href, icon: Icon }) => {
+                  const target = `/dashboard/${activeProjectId}${href}`
+                  const isActive = href === ""
+                    ? pathname === target
+                    : pathname.startsWith(target)
+                  return (
+                    <Link
+                      key={href}
+                      href={target}
+                      onClick={handleLinkClick}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-brand text-white"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {name}
+                    </Link>
+                  )
+                })}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
 
           {!isLoading && isAdmin && (
             <>

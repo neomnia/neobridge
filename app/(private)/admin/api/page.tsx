@@ -28,6 +28,20 @@ import { Badge } from "@/components/ui/badge"
 // Service categories for organized display
 const serviceCategories = [
   {
+    id: "neobridge",
+    label: "🔧 NeoBridge",
+    description: "Intégrations DevOps — project management, CI/CD, workflow",
+    services: [
+      { id: "zoho",     name: "Zoho Projects", icon: "zoho",     type: "neobridge", description: "Gestion de tâches & projets (OAuth2)" },
+      { id: "temporal", name: "Temporal",       icon: "temporal", type: "neobridge", description: "Orchestration de workflows agents" },
+      { id: "notion",   name: "Notion",         icon: "notion",   type: "neobridge", description: "Documentation & specs (API Key)" },
+      { id: "github_token", name: "GitHub Token", icon: "github", type: "neobridge", description: "Accès repos & PRs (Personal Access Token)" },
+      { id: "railway",  name: "Railway",        icon: "railway",  type: "neobridge", description: "Déploiement services backend" },
+      { id: "anthropic",name: "Anthropic",      icon: "anthropic",type: "neobridge", description: "API Claude — sessions agents" },
+      { id: "mistral",  name: "Mistral",        icon: "mistral",  type: "neobridge", description: "API Mistral — PM orchestration" },
+    ]
+  },
+  {
     id: "payment",
     label: "💳 Paiement",
     description: "Services de facturation et paiement",
@@ -66,6 +80,79 @@ const services = serviceCategories.flatMap(cat => cat.services)
 function ServiceIcon({ service, size = "sm" }: { service: (typeof services)[0]; size?: "sm" | "md" | "lg" }) {
   const sizeClass = size === "sm" ? "h-5 w-5" : size === "md" ? "h-6 w-6" : "h-8 w-8"
 
+
+  // Zoho - Orange Z
+  if (service.id === "zoho") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#E42527"/>
+        <text x="16" y="22" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" fontFamily="Arial">Z</text>
+      </svg>
+    )
+  }
+
+  // Temporal - Dark workflow
+  if (service.id === "temporal") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#141414"/>
+        <circle cx="16" cy="16" r="7" stroke="#4DFFC3" strokeWidth="2"/>
+        <path d="M16 10v6l4 2" stroke="#4DFFC3" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    )
+  }
+
+  // Notion - Black N
+  if (service.id === "notion") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#FFFFFF" stroke="#E5E7EB"/>
+        <path d="M9 8h10l4 4v12H9V8z" fill="#FFFFFF" stroke="#000" strokeWidth="1.5"/>
+        <path d="M19 8v4h4" fill="none" stroke="#000" strokeWidth="1.5"/>
+        <path d="M12 14h8M12 17h8M12 20h5" stroke="#000" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    )
+  }
+
+  // Railway - Purple
+  if (service.id === "railway") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#0B0D0E"/>
+        <path d="M7 22l4-12h10l4 12H7z" fill="none" stroke="#A855F7" strokeWidth="1.5"/>
+        <path d="M10 18h12M13 14h6" stroke="#A855F7" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    )
+  }
+
+  // Anthropic - Claude orange
+  if (service.id === "anthropic") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#CC785C"/>
+        <text x="16" y="22" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" fontFamily="Arial">A</text>
+      </svg>
+    )
+  }
+
+  // Mistral - Dark blue
+  if (service.id === "mistral") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#FF7000"/>
+        <text x="16" y="22" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" fontFamily="Arial">M</text>
+      </svg>
+    )
+  }
+
+  // GitHub Token (same icon, different context)
+  if (service.id === "github_token") {
+    return (
+      <svg className={sizeClass} fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+      </svg>
+    )
+  }
 
   // Stripe - Official logo
   if (service.id === "stripe") {
