@@ -24,10 +24,10 @@ import {
   MessageSquare,
   Rocket,
   Headphones,
-  Kanban,
-  Bot,
-  ListTodo,
   Layers,
+  Server,
+  Bot,
+  BarChart3,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -39,20 +39,34 @@ import { toast } from "sonner"
 import { useUser } from "@/lib/contexts/user-context"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
 
-const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods"])
+const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods", "new"])
 
-function getActiveProjectId(pathname: string): string | null {
-  const m = pathname.match(/^\/dashboard\/([^/]+)/)
-  if (!m) return null
-  return RESERVED.has(m[1]) ? null : m[1]
+interface ActiveProject {
+  teamId: string
+  projectId: string
+}
+
+function getActiveProject(pathname: string): ActiveProject | null {
+  // New path: /dashboard/[teamId]/[projectId]/...
+  const newMatch = pathname.match(/^\/dashboard\/([^/]+)\/([^/]+)(?:\/|$)/)
+  if (newMatch) {
+    const teamId = newMatch[1]
+    const projectId = newMatch[2]
+    // Exclude reserved segments in teamId position
+    if (RESERVED.has(teamId)) return null
+    // Exclude reserved segments in projectId position
+    if (RESERVED.has(projectId)) return null
+    return { teamId, projectId }
+  }
+  return null
 }
 
 const projectSubItems = [
-  { name: "Vue d'ensemble", href: "",         icon: Layers },
-  { name: "Kanban",          href: "/kanban",  icon: Kanban },
-  { name: "Agent",           href: "/agent",   icon: Bot },
-  { name: "Sprint",          href: "/sprint",  icon: ListTodo },
-  { name: "Paramètres",      href: "/settings",icon: Settings },
+  { name: "Infrastructure", href: "infrastructure", icon: Server },
+  { name: "Gouvernance",    href: "governance",     icon: Shield },
+  { name: "Orchestration", href: "orchestration",  icon: Bot },
+  { name: "Zoho",          href: "zoho",           icon: BarChart3 },
+  { name: "Paramètres",    href: "settings",       icon: Settings },
 ]
 
 const navItems = [
@@ -88,8 +102,8 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
   const pathname = usePathname()
   const { isAdmin, isSuperAdmin, isLoading } = useUser()
   const { siteName, logo, logoDisplayMode } = usePlatformConfig()
-  const activeProjectId = getActiveProjectId(pathname)
-  const [isProjectOpen, setIsProjectOpen] = useState(!!activeProjectId)
+  const activeProject = getActiveProject(pathname)
+  const [isProjectOpen, setIsProjectOpen] = useState(!!activeProject)
   const [isAdminOpen, setIsAdminOpen] = useState(
     pathname.startsWith("/admin") || pathname.startsWith("/dashboard/admin"),
   )
@@ -195,7 +209,7 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
           })}
 
           {/* ── Projet actif — sous-menu contextuel ─────────────────────── */}
-          {activeProjectId && !isCollapsed && (
+          {activeProject && !isCollapsed && (
             <Collapsible open={isProjectOpen} onOpenChange={setIsProjectOpen}>
               <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                 <div className="flex items-center gap-3">
@@ -206,10 +220,8 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-1 space-y-1 pl-6">
                 {projectSubItems.map(({ name, href, icon: Icon }) => {
-                  const target = `/dashboard/${activeProjectId}${href}`
-                  const isActive = href === ""
-                    ? pathname === target
-                    : pathname.startsWith(target)
+                  const target = `/dashboard/${activeProject.teamId}/${activeProject.projectId}/${href}`
+                  const isActive = pathname.startsWith(target)
                   return (
                     <Link
                       key={href}

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, primaryKey, integer, jsonb, varchar, json, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, uuid, boolean, primaryKey, integer, jsonb, varchar, json, pgEnum, unique } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 
 // =============================================================================
@@ -1624,6 +1624,64 @@ export type OAuthConnection = typeof oauthConnections.$inferSelect
 export type NewOAuthConnection = typeof oauthConnections.$inferInsert
 
 // =============================================================================
+// NEOBRIDGE — PaaS Hierarchy: Admin Global → Team → Project → ProjectApps
+// =============================================================================
+
+/**
+ * Admin API Keys — Master keys managed by Super Admin (global scope)
+ * Credentials stored encrypted via ENCRYPTION_KEY
+ */
+export const adminApiKeys = pgTable('admin_api_keys', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  type:        text('type').notNull(),        // vercel | railway | github_app | scaleway | neon | temporal | zoho | anthropic | mistral | notion
+  label:       text('label').notNull(),
+  credentials: text('credentials').notNull(), // jsonb chiffré via ENCRYPTION_KEY
+  scope:       jsonb('scope'),                // teamId, orgId, installationId...
+  isActive:    boolean('is_active').notNull().default(true),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+  updatedAt:   timestamp('updated_at').defaultNow().notNull(),
+})
+
+/**
+ * Teams — Client workspaces (PaaS tenants)
+ */
+export const teams = pgTable('teams', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  name:      text('name').notNull(),
+  slug:      text('slug').notNull().unique(),
+  plan:      text('plan').notNull().default('free'), // free | pro | enterprise
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+/**
+ * Team Members — Users belonging to a team with a specific role
+ */
+export const teamMembers = pgTable('team_members', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  teamId:    uuid('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
+  userId:    uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role:      text('role').notNull().default('reader'), // owner | writer | reader
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  uniq: unique().on(t.teamId, t.userId),
+}))
+
+/**
+ * API Credentials — Team-level overrides for external service credentials
+ */
+export const apiCredentials = pgTable('api_credentials', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  teamId:      uuid('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
+  type:        text('type').notNull(), // vercel | railway | github_app | scaleway | neon | temporal | zoho | anthropic | mistral | notion
+  label:       text('label').notNull(),
+  credentials: text('credentials').notNull(), // jsonb chiffré via ENCRYPTION_KEY
+  isActive:    boolean('is_active').notNull().default(true),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+  updatedAt:   timestamp('updated_at').defaultNow().notNull(),
+})
+
+// =============================================================================
 // NEOBRIDGE — Projets & Connecteurs
 // =============================================================================
 
@@ -1640,6 +1698,9 @@ export const projects = pgTable("projects", {
   status: projectStatusEnum("status").default('active').notNull(),
   stack: text("stack").array(),
   companyId: uuid("company_id").references(() => companies.id, { onDelete: 'cascade' }),
+  teamId: uuid("team_id").references(() => teams.id), // nullable for backward compat
+  client: text("client"),
+  automationRules: jsonb("automation_rules"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
@@ -1655,7 +1716,9 @@ export const projectConnectors = pgTable("project_connectors", {
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
   company: one(companies, { fields: [projects.companyId], references: [companies.id] }),
+  team: one(teams, { fields: [projects.teamId], references: [teams.id] }),
   connectors: many(projectConnectors),
+  apps: many(projectApps),
 }))
 
 export const projectConnectorsRelations = relations(projectConnectors, ({ one }) => ({
@@ -1667,3 +1730,55 @@ export type NewProject = typeof projects.$inferInsert
 export type ProjectConnector = typeof projectConnectors.$inferSelect
 export type NewProjectConnector = typeof projectConnectors.$inferInsert
 
+/**
+ * Project Apps — Deployment units attached to a project
+ */
+export const projectApps = pgTable('project_apps', {
+  id:                 uuid('id').primaryKey().defaultRandom(),
+  projectId:          uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  platform:           text('platform').notNull(),              // vercel | railway | scaleway | none
+  externalResourceId: text('external_resource_id').notNull(),
+  name:               text('name').notNull(),
+  type:               text('type').notNull(),                  // frontend | backend | worker | script
+  branch:             text('branch'),
+  credentialSource:   text('credential_source').notNull().default('admin'), // admin | team
+  config:             jsonb('config'),
+  createdAt:          timestamp('created_at').defaultNow().notNull(),
+  updatedAt:          timestamp('updated_at').defaultNow().notNull(),
+})
+
+// Relations
+export const teamsRelations = relations(teams, ({ many }) => ({
+  members: many(teamMembers),
+  apiCredentials: many(apiCredentials),
+  projects: many(projects),
+}))
+
+export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
+  team: one(teams, { fields: [teamMembers.teamId], references: [teams.id] }),
+  user: one(users, { fields: [teamMembers.userId], references: [users.id] }),
+}))
+
+export const apiCredentialsRelations = relations(apiCredentials, ({ one }) => ({
+  team: one(teams, { fields: [apiCredentials.teamId], references: [teams.id] }),
+}))
+
+export const projectAppsRelations = relations(projectApps, ({ one }) => ({
+  project: one(projects, { fields: [projectApps.projectId], references: [projects.id] }),
+}))
+
+// Types
+export type AdminApiKey = typeof adminApiKeys.$inferSelect
+export type NewAdminApiKey = typeof adminApiKeys.$inferInsert
+
+export type Team = typeof teams.$inferSelect
+export type NewTeam = typeof teams.$inferInsert
+
+export type TeamMember = typeof teamMembers.$inferSelect
+export type NewTeamMember = typeof teamMembers.$inferInsert
+
+export type ApiCredential = typeof apiCredentials.$inferSelect
+export type NewApiCredential = typeof apiCredentials.$inferInsert
+
+export type ProjectApp = typeof projectApps.$inferSelect
+export type NewProjectApp = typeof projectApps.$inferInsert
