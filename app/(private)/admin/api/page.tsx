@@ -325,6 +325,24 @@ export default function AdminApiPage() {
     redirectUri: "",
   })
 
+  // NeoBridge service configs
+  const [zohoConfig, setZohoConfig] = useState({
+    clientId: "",
+    clientSecret: "",
+    refreshToken: "",
+    portalId: "",
+  })
+  const [temporalConfig, setTemporalConfig] = useState({
+    address: "",
+    namespace: "default",
+    apiKey: "",
+  })
+  const [notionConfig, setNotionConfig] = useState({ apiKey: "" })
+  const [githubTokenConfig, setGithubTokenConfig] = useState({ personalAccessToken: "" })
+  const [railwayConfig, setRailwayConfig] = useState({ apiKey: "" })
+  const [anthropicConfig, setAnthropicConfig] = useState({ apiKey: "" })
+  const [mistralConfig, setMistralConfig] = useState({ apiKey: "" })
+
   useEffect(() => {
     loadAllConfigs()
   }, [])
@@ -410,6 +428,36 @@ export default function AdminApiPage() {
                 redirectUri: data.data.metadata?.redirectUri || "",
               })
               break
+            case "zoho":
+              setZohoConfig({
+                clientId: data.data.config.clientId || "",
+                clientSecret: data.data.config.clientSecret || "",
+                refreshToken: data.data.config.refreshToken || "",
+                portalId: data.data.config.portalId || "",
+              })
+              break
+            case "temporal":
+              setTemporalConfig({
+                address: data.data.config.address || "",
+                namespace: data.data.config.namespace || "default",
+                apiKey: data.data.config.apiKey || "",
+              })
+              break
+            case "notion":
+              setNotionConfig({ apiKey: data.data.config.apiKey || "" })
+              break
+            case "github_token":
+              setGithubTokenConfig({ personalAccessToken: data.data.config.personalAccessToken || "" })
+              break
+            case "railway":
+              setRailwayConfig({ apiKey: data.data.config.apiKey || "" })
+              break
+            case "anthropic":
+              setAnthropicConfig({ apiKey: data.data.config.apiKey || "" })
+              break
+            case "mistral":
+              setMistralConfig({ apiKey: data.data.config.apiKey || "" })
+              break
           }
         }
       }
@@ -430,6 +478,13 @@ export default function AdminApiPage() {
     setPaypalConfig({ clientId: "", clientSecret: "", webhookId: "" })
     setGithubConfig({ clientId: "", clientSecret: "", redirectUri: "" })
     setGoogleConfig({ clientId: "", clientSecret: "", redirectUri: "" })
+    setZohoConfig({ clientId: "", clientSecret: "", refreshToken: "", portalId: "" })
+    setTemporalConfig({ address: "", namespace: "default", apiKey: "" })
+    setNotionConfig({ apiKey: "" })
+    setGithubTokenConfig({ personalAccessToken: "" })
+    setRailwayConfig({ apiKey: "" })
+    setAnthropicConfig({ apiKey: "" })
+    setMistralConfig({ apiKey: "" })
     setShowKey(false)
     setShowSecretKey(false)
     setModalTestResult(null)
@@ -505,15 +560,15 @@ export default function AdminApiPage() {
               'Accept': 'application/vnd.github+json',
             }
           })
-          
+
           if (!githubTestResponse.ok) {
             throw new Error("Token GitHub invalide ou permissions insuffisantes")
           }
-          
+
           const githubUser = await githubTestResponse.json()
-          setModalTestResult({ 
-            success: true, 
-            message: `Token valide pour l'utilisateur ${githubUser.login}` 
+          setModalTestResult({
+            success: true,
+            message: `Token valide pour l'utilisateur ${githubUser.login}`
           })
           toast({
             title: "✅ Token GitHub valide",
@@ -521,6 +576,38 @@ export default function AdminApiPage() {
           })
           setTestingInModal(false)
           return // Sortir car on a déjà géré le test
+        case "zoho":
+          if (!zohoConfig.clientId || !zohoConfig.clientSecret || !zohoConfig.refreshToken) {
+            throw new Error("Client ID, Client Secret et Refresh Token sont requis")
+          }
+          config = zohoConfig
+          break
+        case "temporal":
+          if (!temporalConfig.address) {
+            throw new Error("L'adresse Temporal est requise")
+          }
+          config = temporalConfig
+          break
+        case "notion":
+          if (!notionConfig.apiKey) throw new Error("La clé API Notion est requise")
+          config = notionConfig
+          break
+        case "github_token":
+          if (!githubTokenConfig.personalAccessToken) throw new Error("Le token GitHub est requis")
+          config = githubTokenConfig
+          break
+        case "railway":
+          if (!railwayConfig.apiKey) throw new Error("La clé API Railway est requise")
+          config = railwayConfig
+          break
+        case "anthropic":
+          if (!anthropicConfig.apiKey) throw new Error("La clé API Anthropic est requise")
+          config = anthropicConfig
+          break
+        case "mistral":
+          if (!mistralConfig.apiKey) throw new Error("La clé API Mistral est requise")
+          config = mistralConfig
+          break
       }
 
       const response = await fetch(`/api/services/${selectedService}/test`, {
@@ -685,6 +772,38 @@ export default function AdminApiPage() {
           }
           config = googleConfig
           metadata = { redirectUri: googleConfig.redirectUri }
+          break
+        case "zoho":
+          if (!zohoConfig.clientId || !zohoConfig.clientSecret || !zohoConfig.refreshToken) {
+            throw new Error("Client ID, Client Secret et Refresh Token sont requis")
+          }
+          config = zohoConfig
+          break
+        case "temporal":
+          if (!temporalConfig.address) {
+            throw new Error("L'adresse Temporal est requise")
+          }
+          config = temporalConfig
+          break
+        case "notion":
+          if (!notionConfig.apiKey) throw new Error("La clé API Notion est requise")
+          config = notionConfig
+          break
+        case "github_token":
+          if (!githubTokenConfig.personalAccessToken) throw new Error("Le token GitHub est requis")
+          config = githubTokenConfig
+          break
+        case "railway":
+          if (!railwayConfig.apiKey) throw new Error("La clé API Railway est requise")
+          config = railwayConfig
+          break
+        case "anthropic":
+          if (!anthropicConfig.apiKey) throw new Error("La clé API Anthropic est requise")
+          config = anthropicConfig
+          break
+        case "mistral":
+          if (!mistralConfig.apiKey) throw new Error("La clé API Mistral est requise")
+          config = mistralConfig
           break
       }
 
@@ -1591,6 +1710,214 @@ export default function AdminApiPage() {
                   Create OAuth 2.0 credentials
                 </a>
               </p>
+            </div>
+          </div>
+        )
+
+      case "zoho":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Client ID *</Label>
+              <Input
+                type="text"
+                placeholder="1000.XXXXXXXXXXXXXXXXXXXX"
+                value={zohoConfig.clientId}
+                onChange={(e) => setZohoConfig({ ...zohoConfig, clientId: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">Zoho API Console → Self Client</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Client Secret *</Label>
+              <div className="relative">
+                <Input
+                  type={showSecretKey ? "text" : "password"}
+                  placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  value={zohoConfig.clientSecret}
+                  onChange={(e) => setZohoConfig({ ...zohoConfig, clientSecret: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowSecretKey(!showSecretKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Refresh Token *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="1000.XXXXXXXXXXXXXXXXXXXX"
+                  value={zohoConfig.refreshToken}
+                  onChange={(e) => setZohoConfig({ ...zohoConfig, refreshToken: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Généré via le flow OAuth2 Zoho</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Portal ID</Label>
+              <Input
+                type="text"
+                placeholder="votre-portail"
+                value={zohoConfig.portalId}
+                onChange={(e) => setZohoConfig({ ...zohoConfig, portalId: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">Slug du portail Zoho Projects (optionnel)</p>
+            </div>
+          </div>
+        )
+
+      case "temporal":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Adresse *</Label>
+              <Input
+                type="text"
+                placeholder="temporal.example.com:7233"
+                value={temporalConfig.address}
+                onChange={(e) => setTemporalConfig({ ...temporalConfig, address: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">host:port du Temporal Frontend Service</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Namespace</Label>
+              <Input
+                type="text"
+                placeholder="neobridge.default"
+                value={temporalConfig.namespace}
+                onChange={(e) => setTemporalConfig({ ...temporalConfig, namespace: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>API Key (Temporal Cloud)</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="Temporalio Cloud API Key"
+                  value={temporalConfig.apiKey}
+                  onChange={(e) => setTemporalConfig({ ...temporalConfig, apiKey: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Requis uniquement pour Temporal Cloud (optionnel en self-hosted)</p>
+            </div>
+          </div>
+        )
+
+      case "notion":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Key (Integration Token) *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="secret_..."
+                  value={notionConfig.apiKey}
+                  onChange={(e) => setNotionConfig({ apiKey: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">notion.so/my-integrations → New integration → Internal Integration Token</p>
+            </div>
+          </div>
+        )
+
+      case "github_token":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Personal Access Token *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="github_pat_..."
+                  value={githubTokenConfig.personalAccessToken}
+                  onChange={(e) => setGithubTokenConfig({ personalAccessToken: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">github.com/settings/tokens → Fine-grained token recommandé (scopes: repo, metadata)</p>
+            </div>
+          </div>
+        )
+
+      case "railway":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Token *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="railway_..."
+                  value={railwayConfig.apiKey}
+                  onChange={(e) => setRailwayConfig({ apiKey: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">railway.app → Account Settings → Tokens</p>
+            </div>
+          </div>
+        )
+
+      case "anthropic":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Key *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="sk-ant-..."
+                  value={anthropicConfig.apiKey}
+                  onChange={(e) => setAnthropicConfig({ apiKey: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">console.anthropic.com → API Keys</p>
+            </div>
+          </div>
+        )
+
+      case "mistral":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Key *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="..."
+                  value={mistralConfig.apiKey}
+                  onChange={(e) => setMistralConfig({ apiKey: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">console.mistral.ai → API Keys</p>
             </div>
           </div>
         )
