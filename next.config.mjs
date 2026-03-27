@@ -3,6 +3,7 @@ const nextConfig = {
   transpilePackages: ['lago-javascript-client'],
   outputFileTracingIncludes: {
     '/api/admin/db-hard-reset': ['./drizzle/**/*'],
+    '/api/admin/db-migrate': ['./drizzle/**/*'],
   },
   typescript: {
     ignoreBuildErrors: true,
