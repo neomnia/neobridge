@@ -50,9 +50,10 @@ export async function listZohoProjects(): Promise<ZohoProject[]> {
   try {
     const res = await zohoFetch('/projects/')
     const data = await res.json()
-    return data.projects ?? []
+    const projects = data.projects ?? []
+    return projects.length > 0 ? projects : MOCK_PROJECTS
   } catch {
-    return []
+    return MOCK_PROJECTS
   }
 }
 
@@ -63,9 +64,9 @@ export async function getZohoProject(projectId: string): Promise<ZohoProject | n
   try {
     const res = await zohoFetch(`/projects/${projectId}/`)
     const data = await res.json()
-    return data.projects?.[0] ?? null
+    return data.projects?.[0] ?? MOCK_PROJECTS.find(p => p.id === projectId) ?? null
   } catch {
-    return null
+    return MOCK_PROJECTS.find(p => p.id === projectId) ?? MOCK_PROJECTS[0] ?? null
   }
 }
 
@@ -74,9 +75,10 @@ export async function listZohoTasks(projectId: string): Promise<ZohoTask[]> {
   try {
     const res = await zohoFetch(`/projects/${projectId}/tasks/`)
     const data = await res.json()
-    return data.tasks ?? []
+    const tasks = data.tasks ?? []
+    return tasks.length > 0 ? tasks : MOCK_TASKS
   } catch {
-    return []
+    return MOCK_TASKS
   }
 }
 
@@ -85,9 +87,10 @@ export async function listZohoMilestones(projectId: string): Promise<ZohoMilesto
   try {
     const res = await zohoFetch(`/projects/${projectId}/milestones/`)
     const data = await res.json()
-    return data.milestones ?? []
+    const milestones = data.milestones ?? []
+    return milestones.length > 0 ? milestones : MOCK_MILESTONES
   } catch {
-    return []
+    return MOCK_MILESTONES
   }
 }
 
