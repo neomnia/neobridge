@@ -116,6 +116,106 @@ export async function POST(
             result = { success: true, message: 'AWS credentials format is valid' };
             break;
 
+          case 'github_token':
+            if (!testConfig.config?.personalAccessToken) throw new Error("Token GitHub requis")
+            {
+              const ghRes = await fetch('https://api.github.com/user', {
+                headers: {
+                  'Authorization': `Bearer ${testConfig.config.personalAccessToken}`,
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+                }
+              })
+              if (!ghRes.ok) throw new Error("Token GitHub invalide ou expiré")
+              const ghUser = await ghRes.json()
+              result = { success: true, message: `GitHub connecté : @${ghUser.login} (${ghUser.public_repos} repos)` }
+            }
+            break
+
+          case 'vercel':
+            if (!testConfig.config?.apiToken) throw new Error("Token Vercel requis")
+            {
+              const vRes = await fetch('https://api.vercel.com/v2/user', {
+                headers: { 'Authorization': `Bearer ${testConfig.config.apiToken}` }
+              })
+              if (!vRes.ok) throw new Error("Token Vercel invalide")
+              const vUser = await vRes.json()
+              result = { success: true, message: `Vercel connecté : ${vUser.user?.username || vUser.user?.email}` }
+            }
+            break
+
+          case 'notion':
+            if (!testConfig.config?.apiKey) throw new Error("Clé API Notion requise")
+            {
+              const nRes = await fetch('https://api.notion.com/v1/users/me', {
+                headers: {
+                  'Authorization': `Bearer ${testConfig.config.apiKey}`,
+                  'Notion-Version': '2022-06-28',
+                }
+              })
+              if (!nRes.ok) throw new Error("Clé API Notion invalide")
+              const nUser = await nRes.json()
+              result = { success: true, message: `Notion connecté : ${nUser.name || nUser.id}` }
+            }
+            break
+
+          case 'anthropic':
+            if (!testConfig.config?.apiKey) throw new Error("Clé API Anthropic requise")
+            {
+              const aRes = await fetch('https://api.anthropic.com/v1/models', {
+                headers: {
+                  'x-api-key': testConfig.config.apiKey,
+                  'anthropic-version': '2023-06-01',
+                }
+              })
+              if (!aRes.ok) throw new Error("Clé API Anthropic invalide")
+              const aData = await aRes.json()
+              const modelCount = aData.data?.length || 0
+              result = { success: true, message: `Anthropic connecté — ${modelCount} modèles disponibles` }
+            }
+            break
+
+          case 'mistral':
+            if (!testConfig.config?.apiKey) throw new Error("Clé API Mistral requise")
+            {
+              const mRes = await fetch('https://api.mistral.ai/v1/models', {
+                headers: { 'Authorization': `Bearer ${testConfig.config.apiKey}` }
+              })
+              if (!mRes.ok) throw new Error("Clé API Mistral invalide")
+              const mData = await mRes.json()
+              const mCount = mData.data?.length || 0
+              result = { success: true, message: `Mistral connecté — ${mCount} modèles disponibles` }
+            }
+            break
+
+          case 'railway':
+            if (!testConfig.config?.apiKey) throw new Error("Clé API Railway requise")
+            {
+              const rRes = await fetch('https://backboard.railway.app/graphql/v2', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${testConfig.config.apiKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: '{ me { id name } }' })
+              })
+              if (!rRes.ok) throw new Error("Clé API Railway invalide")
+              const rData = await rRes.json()
+              if (rData.errors) throw new Error("Token Railway invalide ou expiré")
+              result = { success: true, message: `Railway connecté : ${rData.data?.me?.name || rData.data?.me?.id}` }
+            }
+            break
+
+          case 'zoho':
+            if (!testConfig.config?.clientId || !testConfig.config?.refreshToken) throw new Error("Client ID et Refresh Token requis")
+            result = { success: true, message: 'Credentials Zoho format OK — connexion vérifiée au prochain refresh token' }
+            break
+
+          case 'temporal':
+            if (!testConfig.config?.address) throw new Error("Adresse Temporal requise")
+            result = { success: true, message: `Temporal configuré : ${testConfig.config.address}` }
+            break
+
           default:
             result = { success: false, message: `Unknown service: ${service}` };
         }

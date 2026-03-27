@@ -39,6 +39,7 @@ const serviceCategories = [
       { id: "railway",  name: "Railway",        icon: "railway",  type: "neobridge", description: "Déploiement services backend" },
       { id: "anthropic",name: "Anthropic",      icon: "anthropic",type: "neobridge", description: "API Claude — sessions agents" },
       { id: "mistral",  name: "Mistral",        icon: "mistral",  type: "neobridge", description: "API Mistral — PM orchestration" },
+      { id: "vercel",   name: "Vercel",         icon: "vercel",   type: "neobridge", description: "Déploiements, projets & env vars (API Token)" },
     ]
   },
   {
@@ -252,6 +253,16 @@ function ServiceIcon({ service, size = "sm" }: { service: (typeof services)[0]; 
     )
   }
 
+  // Vercel - Black triangle
+  if (service.id === "vercel") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#000000"/>
+        <path d="M16 8L26 24H6L16 8Z" fill="white"/>
+      </svg>
+    )
+  }
+
   // Default: emoji fallback
   return <span className={size === "lg" ? "text-2xl" : "text-base"}>{service.icon}</span>
 }
@@ -342,6 +353,7 @@ export default function AdminApiPage() {
   const [railwayConfig, setRailwayConfig] = useState({ apiKey: "" })
   const [anthropicConfig, setAnthropicConfig] = useState({ apiKey: "" })
   const [mistralConfig, setMistralConfig] = useState({ apiKey: "" })
+  const [vercelConfig, setVercelConfig] = useState({ apiToken: "" })
 
   useEffect(() => {
     loadAllConfigs()
@@ -458,6 +470,9 @@ export default function AdminApiPage() {
             case "mistral":
               setMistralConfig({ apiKey: data.data.config.apiKey || "" })
               break
+            case "vercel":
+              setVercelConfig({ apiToken: data.data.config.apiToken || "" })
+              break
           }
         }
       }
@@ -485,6 +500,7 @@ export default function AdminApiPage() {
     setRailwayConfig({ apiKey: "" })
     setAnthropicConfig({ apiKey: "" })
     setMistralConfig({ apiKey: "" })
+    setVercelConfig({ apiToken: "" })
     setShowKey(false)
     setShowSecretKey(false)
     setModalTestResult(null)
@@ -607,6 +623,10 @@ export default function AdminApiPage() {
         case "mistral":
           if (!mistralConfig.apiKey) throw new Error("La clé API Mistral est requise")
           config = mistralConfig
+          break
+        case "vercel":
+          if (!vercelConfig.apiToken) throw new Error("Le token Vercel est requis")
+          config = vercelConfig
           break
       }
 
@@ -804,6 +824,10 @@ export default function AdminApiPage() {
         case "mistral":
           if (!mistralConfig.apiKey) throw new Error("La clé API Mistral est requise")
           config = mistralConfig
+          break
+        case "vercel":
+          if (!vercelConfig.apiToken) throw new Error("Le token Vercel est requis")
+          config = vercelConfig
           break
       }
 
@@ -1919,6 +1943,26 @@ export default function AdminApiPage() {
               </div>
               <p className="text-xs text-muted-foreground">console.mistral.ai → API Keys</p>
             </div>
+          </div>
+        )
+
+      case "vercel":
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="vercel-token">API Token</Label>
+            <div className="relative">
+              <Input
+                id="vercel-token"
+                type={showKey ? "text" : "password"}
+                value={vercelConfig.apiToken}
+                onChange={e => setVercelConfig({ apiToken: e.target.value })}
+                placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
+              />
+              <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-2 top-2 text-muted-foreground">
+                {showKey ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">Token depuis vercel.com/account/tokens</p>
           </div>
         )
 
