@@ -191,6 +191,18 @@ export async function POST(
             break;
           }
 
+          case 'perplexity': {
+            if (!testConfig.config?.apiKey) throw new Error('Clé Perplexity manquante');
+            const r = await fetch('https://api.perplexity.ai/chat/completions', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${testConfig.config.apiKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ model: 'sonar', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }),
+            });
+            if (r.status === 401) throw new Error('Clé API Perplexity invalide');
+            result = { success: true, message: 'Perplexity : clé API valide' };
+            break;
+          }
+
           case 'railway': {
             if (!testConfig.config?.apiKey) throw new Error('Clé Railway manquante');
             const r = await fetch('https://backboard.railway.app/graphql/v2', {

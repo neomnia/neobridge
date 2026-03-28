@@ -301,6 +301,18 @@ export async function testServiceConnection(serviceName: string, environment: Se
         return { success: true, message: `Gemini : ${d.models?.length || 0} modèles disponibles` };
       }
 
+      case 'perplexity': {
+        const cfg = await serviceApiRepository.getConfig('perplexity' as any, environment) as any;
+        if (!cfg?.config?.apiKey) return { success: false, message: 'Clé Perplexity non configurée' };
+        const r = await fetch('https://api.perplexity.ai/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${cfg.config.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'sonar', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }),
+        });
+        if (r.status === 401) return { success: false, message: 'Clé API Perplexity invalide' };
+        return { success: true, message: 'Perplexity : clé API valide' };
+      }
+
       default:
         return { success: false, message: `Unknown service: ${serviceName}` };
     }

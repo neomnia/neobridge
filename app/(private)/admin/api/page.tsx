@@ -41,6 +41,7 @@ const serviceCategories = [
       { id: "mistral",  name: "Mistral",        icon: "mistral",  type: "neobridge", description: "API Mistral — PM orchestration" },
       { id: "openai",   name: "OpenAI",         icon: "openai",   type: "neobridge", description: "API ChatGPT / GPT-4 — agents IA" },
       { id: "gemini",   name: "Google Gemini",  icon: "gemini",   type: "neobridge", description: "API Gemini — vision & multimodal" },
+      { id: "perplexity", name: "Perplexity",   icon: "perplexity", type: "neobridge", description: "API Perplexity — recherche web IA" },
     ]
   },
   {
@@ -143,6 +144,17 @@ function ServiceIcon({ service, size = "sm" }: { service: (typeof services)[0]; 
       <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
         <rect width="32" height="32" rx="6" fill="#FF7000"/>
         <text x="16" y="22" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" fontFamily="Arial">M</text>
+      </svg>
+    )
+  }
+
+  // Perplexity - Teal
+  if (service.id === "perplexity") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#20B2AA"/>
+        <path d="M10 8h5l5 8-5 8H10l5-8z" fill="white" opacity="0.9"/>
+        <path d="M16 8h6l-5 8 5 8h-6l-5-8z" fill="white" opacity="0.6"/>
       </svg>
     )
   }
@@ -366,6 +378,7 @@ export default function AdminApiPage() {
   const [mistralConfig, setMistralConfig] = useState({ apiKey: "" })
   const [openaiConfig, setOpenaiConfig] = useState({ apiKey: "" })
   const [geminiConfig, setGeminiConfig] = useState({ apiKey: "" })
+  const [perplexityConfig, setPerplexityConfig] = useState({ apiKey: "" })
   const [zohoAuthCode, setZohoAuthCode] = useState("")
   const [exchangingZoho, setExchangingZoho] = useState(false)
 
@@ -490,6 +503,9 @@ export default function AdminApiPage() {
             case "gemini":
               setGeminiConfig({ apiKey: data.data.config.apiKey || "" })
               break
+            case "perplexity":
+              setPerplexityConfig({ apiKey: data.data.config.apiKey || "" })
+              break
           }
         }
       }
@@ -519,6 +535,7 @@ export default function AdminApiPage() {
     setMistralConfig({ apiKey: "" })
     setOpenaiConfig({ apiKey: "" })
     setGeminiConfig({ apiKey: "" })
+    setPerplexityConfig({ apiKey: "" })
     setShowKey(false)
     setShowSecretKey(false)
     setModalTestResult(null)
@@ -649,6 +666,10 @@ export default function AdminApiPage() {
         case "gemini":
           if (!geminiConfig.apiKey) throw new Error("La clé API Gemini est requise")
           config = geminiConfig
+          break
+        case "perplexity":
+          if (!perplexityConfig.apiKey) throw new Error("La clé API Perplexity est requise")
+          config = perplexityConfig
           break
       }
 
@@ -854,6 +875,10 @@ export default function AdminApiPage() {
         case "gemini":
           if (!geminiConfig.apiKey) throw new Error("La clé API Gemini est requise")
           config = geminiConfig
+          break
+        case "perplexity":
+          if (!perplexityConfig.apiKey) throw new Error("La clé API Perplexity est requise")
+          config = perplexityConfig
           break
       }
 
@@ -2060,6 +2085,28 @@ export default function AdminApiPage() {
           </div>
         )
 
+      case "perplexity":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Key *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="pplx-..."
+                  value={perplexityConfig.apiKey}
+                  onChange={(e) => setPerplexityConfig({ apiKey: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">www.perplexity.ai → Settings → API</p>
+            </div>
+          </div>
+        )
+
       default:
         return null
     }
@@ -2190,13 +2237,15 @@ export default function AdminApiPage() {
                           </>
                         )}
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(config)}
-                      >
-                        Edit
-                      </Button>
+                      {!config.isActive && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(config)}
+                        >
+                          Configurer
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -2213,6 +2262,52 @@ export default function AdminApiPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Non configurés */}
+      {(() => {
+        const configuredIds = new Set(allConfigs.map(c => c.serviceName))
+        const missing = services.filter(s => !configuredIds.has(s.id))
+        if (missing.length === 0) return null
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                Services non configurés
+              </CardTitle>
+              <CardDescription>Ces services n'ont pas encore de clé API. Cliquez sur Configurer pour en ajouter une.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {missing.map(service => (
+                  <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30 border-dashed">
+                    <div className="flex items-center gap-3">
+                      <ServiceIcon service={service} size="md" />
+                      <div>
+                        <p className="font-medium text-sm">{service.name}</p>
+                        <p className="text-xs text-muted-foreground">{service.description}</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => {
+                        resetForm()
+                        setSelectedService(service.id)
+                        setEditingConfig(null)
+                        setDialogOpen(true)
+                      }}
+                    >
+                      Configurer
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })()}
 
       {/* Add/Edit Sheet */}
       <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
