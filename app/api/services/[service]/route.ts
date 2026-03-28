@@ -66,10 +66,19 @@ export async function POST(
     const body = await request.json();
 
     // Validate service name
-    const validServices = ['stripe', 'paypal', 'scaleway', 'resend', 'aws', 'lago'];
+    const validServices = [
+      // Payment
+      'stripe', 'paypal', 'lago',
+      // Email
+      'resend', 'aws', 'scaleway',
+      // OAuth
+      'github', 'google', 'facebook', 'microsoft',
+      // NeoBridge
+      'zoho', 'temporal', 'notion', 'github_token', 'railway', 'anthropic', 'mistral', 'vercel',
+    ];
     if (!validServices.includes(service)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid service name' },
+        { success: false, error: `Invalid service name: ${service}` },
         { status: 400 }
       );
     }
