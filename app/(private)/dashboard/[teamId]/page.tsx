@@ -1,68 +1,46 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
-  CheckCircle2, XCircle, AlertCircle, Clock, Plus, Send,
-  Brain, Activity, Terminal, ChevronRight, Loader2,
-  Zap, GitCommit, FileText, Target, Bot,
+  CheckCircle2, Clock, Plus, Send, Brain, Activity,
+  Terminal, ChevronRight, Loader2, Zap, GitCommit,
+  FileText, Target, Bot, ExternalLink, Server,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
-interface Project {
-  id: string
-  name: string
-  description?: string
-  status: string
-  last_modified_time?: string
+interface VercelProject {
+  id: string; name: string; source: 'vercel'
+  url: string; status: string; updatedAt: string | null; framework: string | null
 }
-
-interface StatusCard extends Project {
-  vercel: 'READY' | 'BUILDING' | 'ERROR' | 'UNKNOWN'
-  railway: 'RUNNING' | 'CRASHED' | 'UNKNOWN'
-  neonLatency: number | null
-  temporalActive: number
-  tokensToday: number
-  tokenLimit: number
-  confidence: number
+interface RailwayProject {
+  id: string; name: string; source: 'railway'
+  url: string | null; status: string; updatedAt: string | null
+  services: string[]; environments: string[]
 }
-
 interface PulseEvent {
-  id: string
-  timestamp: Date
+  id: string; timestamp: Date
   source: 'zoho' | 'github' | 'temporal' | 'notion' | 'agent'
-  type: string
-  message: string
-  confidenceScore?: number
-  projectId?: string
+  message: string; confidenceScore?: number
 }
 
-interface GhostStep {
-  id: string
-  label: string
-  status: 'done' | 'running' | 'pending'
-  duration?: string
-}
-
-// ─── Source icons ─────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
 const SOURCE_ICON: Record<string, React.ReactNode> = {
-  zoho:     <Target className="h-3.5 w-3.5 text-orange-500" />,
-  github:   <GitCommit className="h-3.5 w-3.5 text-gray-600" />,
-  temporal: <Clock className="h-3.5 w-3.5 text-purple-500" />,
-  notion:   <FileText className="h-3.5 w-3.5 text-gray-700" />,
-  agent:    <Bot className="h-3.5 w-3.5 text-blue-500" />,
+  zoho:     <Target    className="h-3.5 w-3.5 text-orange-500" />,
+  github:   <GitCommit className="h-3.5 w-3.5 text-gray-500" />,
+  temporal: <Clock     className="h-3.5 w-3.5 text-purple-500" />,
+  notion:   <FileText  className="h-3.5 w-3.5 text-gray-600" />,
+  agent:    <Bot       className="h-3.5 w-3.5 text-blue-500" />,
 }
-
-// ─── Confidence badge ─────────────────────────────────────────────────────────
 
 function ConfidenceBadge({ score }: { score: number }) {
   if (score >= 95) return <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">🟢 {score}%</Badge>
@@ -70,83 +48,95 @@ function ConfidenceBadge({ score }: { score: number }) {
   return <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">🔴 {score}%</Badge>
 }
 
-// ─── Status dot ───────────────────────────────────────────────────────────────
-
-function StatusDot({ status }: { status: string }) {
-  const ok = status === 'READY' || status === 'RUNNING'
-  const err = status === 'ERROR' || status === 'CRASHED'
-  if (ok)  return <span className="inline-block h-2 w-2 rounded-full bg-green-500 shrink-0" />
-  if (err) return <span className="inline-block h-2 w-2 rounded-full bg-red-500 shrink-0" />
-  return <span className="inline-block h-2 w-2 rounded-full bg-yellow-400 shrink-0" />
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function mockCard(project: Project): StatusCard {
-  const seed = project.id.charCodeAt(0) % 4
-  const vercelStates: StatusCard['vercel'][] = ['READY', 'READY', 'BUILDING', 'ERROR']
-  const railwayStates: StatusCard['railway'][] = ['RUNNING', 'RUNNING', 'RUNNING', 'CRASHED']
-  return {
-    ...project,
-    vercel: vercelStates[seed],
-    railway: railwayStates[seed],
-    neonLatency: 8 + (seed * 14),
-    temporalActive: seed * 2,
-    tokensToday: 20000 + seed * 22000,
-    tokenLimit: 200000,
-    confidence: 97 - seed * 9,
+function StatusBadge({ status, source }: { status: string; source: 'vercel' | 'railway' }) {
+  const map: Record<string, { label: string; className: string }> = {
+    READY:    { label: 'Ready',    className: 'bg-green-100 text-green-700 border-green-200' },
+    RUNNING:  { label: 'Running',  className: 'bg-green-100 text-green-700 border-green-200' },
+    BUILDING: { label: 'Building', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+    ERROR:    { label: 'Error',    className: 'bg-red-100 text-red-700 border-red-200' },
+    CRASHED:  { label: 'Crashed',  className: 'bg-red-100 text-red-700 border-red-200' },
+    CANCELED: { label: 'Canceled', className: 'bg-gray-100 text-gray-600 border-gray-200' },
+    UNKNOWN:  { label: 'Unknown',  className: 'bg-gray-100 text-gray-500 border-gray-200' },
   }
+  const s = map[status] ?? map.UNKNOWN
+  return <Badge variant="outline" className={`text-[10px] ${s.className}`}>{s.label}</Badge>
 }
 
 const MOCK_PULSE: PulseEvent[] = [
-  { id: '1', timestamp: new Date(Date.now() - 60000),   source: 'agent',    type: 'agent_step', message: 'Claude : composant TableCompta généré et committé', confidenceScore: 97 },
-  { id: '2', timestamp: new Date(Date.now() - 180000),  source: 'github',   type: 'commit',     message: '3 commits automatiques — Fix: TVA Logic' },
-  { id: '3', timestamp: new Date(Date.now() - 300000),  source: 'zoho',     type: 'milestone',  message: 'Nouveau jalon atteint : MVP Compta validé 🎯' },
-  { id: '4', timestamp: new Date(Date.now() - 600000),  source: 'temporal', type: 'workflow',   message: 'Workflow #872 terminé : Déploiement Staging ✓' },
-  { id: '5', timestamp: new Date(Date.now() - 900000),  source: 'notion',   type: 'doc_update', message: 'Roadmap mise à jour : Étape 4 débloquée 📓' },
-  { id: '6', timestamp: new Date(Date.now() - 1200000), source: 'agent',    type: 'agent_step', message: 'Mistral PM : tâche #41 priorisée → brief envoyé à Claude', confidenceScore: 91 },
+  { id: '1', timestamp: new Date(Date.now() -  60000), source: 'agent',    message: 'Claude : composant TableCompta généré et committé', confidenceScore: 97 },
+  { id: '2', timestamp: new Date(Date.now() - 180000), source: 'github',   message: '3 commits automatiques — Fix: TVA Logic' },
+  { id: '3', timestamp: new Date(Date.now() - 300000), source: 'zoho',     message: 'Nouveau jalon atteint : MVP Compta validé 🎯' },
+  { id: '4', timestamp: new Date(Date.now() - 600000), source: 'temporal', message: 'Workflow #872 terminé : Déploiement Staging ✓' },
+  { id: '5', timestamp: new Date(Date.now() - 900000), source: 'notion',   message: 'Roadmap mise à jour : Étape 4 débloquée 📓' },
+  { id: '6', timestamp: new Date(Date.now()-1200000),  source: 'agent',    message: 'Mistral PM : tâche #41 priorisée → brief envoyé à Claude', confidenceScore: 91 },
 ]
 
-const MOCK_GHOST: GhostStep[] = [
-  { id: '1', label: 'Analyse du ticket Zoho terminée',     status: 'done',    duration: '2s' },
-  { id: '2', label: 'Consultation doc Notion via MCP',     status: 'done',    duration: '1s' },
-  { id: '3', label: 'Écriture du composant React',         status: 'running' },
-  { id: '4', label: 'Validation du schéma Neon',           status: 'pending' },
-  { id: '5', label: 'Déploiement sur Vercel',              status: 'pending' },
+// Ghost steps cycle — each step becomes 'done' then next 'running', loops
+const GHOST_STEPS = [
+  'Analyse du ticket Zoho',
+  'Consultation doc Notion via MCP',
+  'Écriture du composant React',
+  'Validation du schéma Neon',
+  'Déploiement sur Vercel',
 ]
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ─── Ghost Dev Monitor ─────────────────────────────────────────────────────────
+
+function GhostDevMonitor() {
+  const [doneCount, setDoneCount] = useState(2)  // 0→2 already done at mount
+
+  useEffect(() => {
+    if (doneCount >= GHOST_STEPS.length) return
+    const t = setTimeout(() => setDoneCount(d => d + 1), 3500)
+    return () => clearTimeout(t)
+  }, [doneCount])
+
+  return (
+    <div className="space-y-2">
+      {GHOST_STEPS.map((label, i) => {
+        const isDone    = i < doneCount
+        const isRunning = i === doneCount && doneCount < GHOST_STEPS.length
+        const isPending = i > doneCount
+        return (
+          <div key={i} className="flex items-center gap-2.5 text-xs">
+            {isDone    && <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />}
+            {isRunning && <Loader2      className="h-3.5 w-3.5 text-blue-500 shrink-0 animate-spin" />}
+            {isPending && <div          className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30 shrink-0" />}
+            <span className={isPending ? 'text-muted-foreground/50' : ''}>{label}</span>
+          </div>
+        )
+      })}
+      {doneCount >= GHOST_STEPS.length && (
+        <p className="text-[11px] text-green-600 font-medium pt-1">✓ Ticket #42 livré</p>
+      )}
+    </div>
+  )
+}
+
+// ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function PanoptiqueePage() {
-  const params = useParams<{ teamId: string }>()
-  const router = useRouter()
-  const teamId = params.teamId
+  const params  = useParams<{ teamId: string }>()
+  const teamId  = params.teamId
 
-  const [projects, setProjects]     = useState<StatusCard[]>([])
-  const [loading, setLoading]       = useState(true)
-  const [pulse]                     = useState<PulseEvent[]>(MOCK_PULSE)
-  const [ghost]                     = useState<GhostStep[]>(MOCK_GHOST)
-  const [command, setCommand]       = useState('')
-  const [sending, setSending]       = useState(false)
-  const [patterns]                  = useState(47)
-  const [newPatterns]               = useState(3)
-  const inputRef                    = useRef<HTMLInputElement>(null)
+  const [vercelProjects, setVercelProjects] = useState<VercelProject[]>([])
+  const [railwayProjects, setRailwayProjects] = useState<RailwayProject[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [pulse]                 = useState<PulseEvent[]>(MOCK_PULSE)
+  const [command, setCommand]   = useState('')
+  const [sending, setSending]   = useState(false)
+  const inputRef                = useRef<HTMLInputElement>(null)
 
   const loadProjects = useCallback(async () => {
     try {
-      const res = await fetch(`/api/zoho?action=listProjects`)
-      const data = res.ok ? await res.json() : null
-      const list: Project[] = Array.isArray(data?.projects)
-        ? data.projects
-        : Array.isArray(data)
-        ? data
-        : []
-      setProjects(list.map(mockCard))
-    } catch {
-      setProjects([])
-    } finally {
-      setLoading(false)
-    }
+      const r = await fetch('/api/dashboard/projects')
+      if (r.ok) {
+        const data = await r.json()
+        setVercelProjects(data.vercel ?? [])
+        setRailwayProjects(data.railway ?? [])
+      }
+    } catch { /* silent */ }
+    finally { setLoading(false) }
   }, [])
 
   useEffect(() => {
@@ -170,16 +160,17 @@ export default function PanoptiqueePage() {
     e.preventDefault()
     if (!command.trim()) return
     setSending(true)
-    // TODO: envoyer vers /api/agent avec contexte teamId
     await new Promise(r => setTimeout(r, 600))
     setCommand('')
     setSending(false)
   }
 
+  const noProjects = vercelProjects.length === 0 && railwayProjects.length === 0
+
   return (
     <div className="space-y-4">
 
-      {/* ── Zone C — Command Bar ─────────────────────────────────────── */}
+      {/* ── Zone C — Command Bar ───────────────────────────────────── */}
       <form onSubmit={handleCommand}>
         <div className="flex items-center gap-2 p-3 border rounded-xl bg-muted/30 shadow-sm focus-within:ring-2 focus-within:ring-primary/30 transition-all">
           <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -198,10 +189,15 @@ export default function PanoptiqueePage() {
         </div>
       </form>
 
-      {/* ── Zone A — Project Status Cards ────────────────────────────── */}
+      {/* ── Zone A — Vercel Projects ───────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Projets</h2>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            <svg className="h-4 w-4" viewBox="0 0 32 32" fill="currentColor">
+              <path d="M16 4L28 24H4L16 4Z"/>
+            </svg>
+            Vercel
+          </h2>
           <Button asChild size="sm" variant="outline">
             <Link href={`/dashboard/${teamId}/new`}>
               <Plus className="h-3.5 w-3.5 mr-1.5" />
@@ -211,102 +207,111 @@ export default function PanoptiqueePage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : projects.length === 0 ? (
+        ) : vercelProjects.length === 0 ? (
           <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center py-12 text-center">
-              <p className="text-muted-foreground text-sm">Aucun projet disponible</p>
-              <Button asChild className="mt-4" size="sm">
-                <Link href={`/dashboard/${teamId}/new`}>
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Créer un projet
-                </Link>
-              </Button>
+            <CardContent className="flex flex-col items-center py-8 text-center">
+              <p className="text-muted-foreground text-sm">Aucun projet Vercel</p>
+              <p className="text-xs text-muted-foreground mt-1">Configurez votre token Vercel dans <Link href="/admin/api" className="text-primary hover:underline">Admin → API Management</Link></p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {projects.map(p => (
-              <Link key={p.id} href={`/dashboard/${teamId}/${p.id}/infrastructure`}>
-                <Card className="hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer h-full group">
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                          {p.name}
-                        </h3>
-                        {p.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{p.description}</p>
-                        )}
-                      </div>
-                      <ConfidenceBadge score={p.confidence} />
+            {vercelProjects.map(p => (
+              <Card key={p.id} className="hover:border-primary/40 hover:shadow-sm transition-all group">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{p.name}</h3>
+                      {p.framework && <p className="text-[11px] text-muted-foreground mt-0.5">{p.framework}</p>}
                     </div>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 space-y-2.5">
-                    {/* Deploy status */}
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="flex items-center gap-1.5">
-                        <StatusDot status={p.vercel} />
-                        <span className="text-muted-foreground">Vercel</span>
-                        <span className="font-mono font-medium">{p.vercel}</span>
+                    <StatusBadge status={p.status} source="vercel" />
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-2">
+                  {p.url && (
+                    <a href={p.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors truncate">
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                      {p.url.replace('https://', '')}
+                    </a>
+                  )}
+                  <div className="flex items-center justify-between">
+                    {p.updatedAt && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {formatDistanceToNow(new Date(p.updatedAt), { addSuffix: true, locale: fr })}
                       </span>
-                      <span className="text-muted-foreground/40">•</span>
-                      <span className="flex items-center gap-1.5">
-                        <StatusDot status={p.railway} />
-                        <span className="text-muted-foreground">Railway</span>
-                        <span className="font-mono font-medium">{p.railway}</span>
-                      </span>
-                    </div>
-                    {/* Metrics */}
-                    <div className="grid grid-cols-3 gap-1.5 text-[11px]">
-                      <div className="rounded-md bg-muted/50 px-2 py-1 text-center">
-                        <div className="font-semibold text-foreground">{p.neonLatency}ms</div>
-                        <div className="text-muted-foreground">Neon</div>
-                      </div>
-                      <div className="rounded-md bg-muted/50 px-2 py-1 text-center">
-                        <div className="font-semibold text-foreground">{p.temporalActive}</div>
-                        <div className="text-muted-foreground">Workflows</div>
-                      </div>
-                      <div className="rounded-md bg-muted/50 px-2 py-1 text-center">
-                        <div className="font-semibold text-foreground">{Math.round(p.tokensToday / 1000)}K</div>
-                        <div className="text-muted-foreground">Tokens</div>
-                      </div>
-                    </div>
-                    {/* Token bar */}
-                    <div className="space-y-0.5">
-                      <div className="flex justify-between text-[10px] text-muted-foreground">
-                        <span>Tokens IA</span>
-                        <span>{Math.round(p.tokensToday / 1000)}K / {Math.round(p.tokenLimit / 1000)}K</span>
-                      </div>
-                      <div className="h-1 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary/60 transition-all"
-                          style={{ width: `${Math.min(100, (p.tokensToday / p.tokenLimit) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between pt-0.5">
-                      {p.last_modified_time && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(p.last_modified_time), { addSuffix: true, locale: fr })}
-                        </span>
-                      )}
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 ml-auto" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+                    )}
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 ml-auto" />
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}
       </section>
 
-      {/* ── Zone B — Pulse + Ghost Dev ───────────────────────────────── */}
+      {/* ── Zone A — Railway Projects ──────────────────────────────── */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Server className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Railway</h2>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : railwayProjects.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center py-6 text-center">
+              <p className="text-muted-foreground text-sm">Aucun projet Railway</p>
+              <p className="text-xs text-muted-foreground mt-1">Configurez votre clé Railway dans <Link href="/admin/api" className="text-primary hover:underline">Admin → API Management</Link></p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {railwayProjects.map(p => (
+              <Card key={p.id} className="hover:border-primary/40 hover:shadow-sm transition-all group">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors flex-1">{p.name}</h3>
+                    <StatusBadge status={p.status} source="railway" />
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-2">
+                  {p.services.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {p.services.map(s => (
+                        <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  {p.environments.length > 0 && (
+                    <div className="flex gap-1">
+                      {p.environments.map(env => (
+                        <Badge key={env} variant="outline" className="text-[10px]">{env}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  {p.updatedAt && (
+                    <span className="text-[10px] text-muted-foreground block">
+                      {formatDistanceToNow(new Date(p.updatedAt), { addSuffix: true, locale: fr })}
+                    </span>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Zone B — Pulse + Ghost Dev ─────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* Pulse Timeline */}
+        {/* Pulse */}
         <Card>
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -319,7 +324,7 @@ export default function PanoptiqueePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <ScrollArea className="h-64">
+            <ScrollArea className="h-56">
               <div className="space-y-3">
                 {pulse.map(event => (
                   <div key={event.id} className="flex items-start gap-2.5">
@@ -330,9 +335,7 @@ export default function PanoptiqueePage() {
                         <span className="text-[10px] text-muted-foreground">
                           {formatDistanceToNow(event.timestamp, { addSuffix: true, locale: fr })}
                         </span>
-                        {event.confidenceScore !== undefined && (
-                          <ConfidenceBadge score={event.confidenceScore} />
-                        )}
+                        {event.confidenceScore !== undefined && <ConfidenceBadge score={event.confidenceScore} />}
                       </div>
                     </div>
                   </div>
@@ -352,28 +355,14 @@ export default function PanoptiqueePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-4">
-            <div className="space-y-2">
-              {ghost.map(step => (
-                <div key={step.id} className="flex items-center gap-2.5 text-xs">
-                  {step.status === 'done'    && <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />}
-                  {step.status === 'running' && <Loader2     className="h-3.5 w-3.5 text-blue-500 shrink-0 animate-spin" />}
-                  {step.status === 'pending' && <div         className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30 shrink-0" />}
-                  <span className={step.status === 'pending' ? 'text-muted-foreground/50' : ''}>
-                    {step.label}
-                  </span>
-                  {step.duration && (
-                    <span className="ml-auto text-muted-foreground/60 font-mono">{step.duration}</span>
-                  )}
-                </div>
-              ))}
-            </div>
+            <GhostDevMonitor />
 
             {/* Knowledge Growth */}
             <div className="border-t pt-3 space-y-1.5">
               <div className="flex items-center gap-2 text-xs font-medium">
                 <Brain className="h-3.5 w-3.5 text-violet-500" />
-                <span>Knowledge Growth</span>
-                <Badge variant="secondary" className="ml-auto text-[10px]">+{newPatterns} ce jour</Badge>
+                Knowledge Growth
+                <Badge variant="secondary" className="ml-auto text-[10px]">+3 ce jour</Badge>
               </div>
               <div className="text-[11px] text-muted-foreground space-y-0.5 pl-5">
                 <p>└── Déploiement Railway avec migration Drizzle</p>
@@ -383,7 +372,7 @@ export default function PanoptiqueePage() {
               <div className="flex items-center gap-1.5 pl-5 pt-0.5">
                 <Zap className="h-3 w-3 text-yellow-500" />
                 <span className="text-[11px] text-muted-foreground">
-                  Base totale : <span className="font-semibold text-foreground">{patterns}</span> patterns
+                  Base totale : <span className="font-semibold text-foreground">47</span> patterns
                 </span>
               </div>
             </div>
