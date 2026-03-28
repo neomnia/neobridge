@@ -342,6 +342,8 @@ export default function AdminApiPage() {
   const [railwayConfig, setRailwayConfig] = useState({ apiKey: "" })
   const [anthropicConfig, setAnthropicConfig] = useState({ apiKey: "" })
   const [mistralConfig, setMistralConfig] = useState({ apiKey: "" })
+  const [zohoAuthCode, setZohoAuthCode] = useState("")
+  const [exchangingZoho, setExchangingZoho] = useState(false)
 
   useEffect(() => {
     loadAllConfigs()
@@ -1767,6 +1769,50 @@ export default function AdminApiPage() {
                 onChange={(e) => setZohoConfig({ ...zohoConfig, portalId: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">Slug du portail Zoho Projects (optionnel)</p>
+            </div>
+            <div className="border rounded-md p-3 space-y-2 bg-muted/30">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Obtenir un Refresh Token via code OAuth</Label>
+              <p className="text-xs text-muted-foreground">Si vous avez un code d'autorisation Zoho (valide ~10 min), collez-le ici pour extraire le refresh token automatiquement.</p>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="1000.xxxxxxx.xxxxxxx"
+                  value={zohoAuthCode}
+                  onChange={(e) => setZohoAuthCode(e.target.value)}
+                  className="text-xs"
+                />
+                <button
+                  type="button"
+                  disabled={!zohoAuthCode || !zohoConfig.clientId || !zohoConfig.clientSecret || exchangingZoho}
+                  onClick={async () => {
+                    setExchangingZoho(true)
+                    try {
+                      const res = await fetch('/api/admin/zoho-exchange', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          code: zohoAuthCode,
+                          clientId: zohoConfig.clientId,
+                          clientSecret: zohoConfig.clientSecret,
+                        }),
+                      })
+                      const data = await res.json()
+                      if (data.success && data.refreshToken) {
+                        setZohoConfig({ ...zohoConfig, refreshToken: data.refreshToken })
+                        setZohoAuthCode("")
+                        alert(`Refresh token obtenu (domaine .${data.domain}) — collé dans le champ ci-dessus.`)
+                      } else {
+                        alert(`Erreur : ${data.error || 'Exchange échoué'}`)
+                      }
+                    } finally {
+                      setExchangingZoho(false)
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {exchangingZoho ? "..." : "Échanger"}
+                </button>
+              </div>
             </div>
           </div>
         )
