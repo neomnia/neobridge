@@ -171,6 +171,26 @@ export async function POST(
             break;
           }
 
+          case 'openai': {
+            if (!testConfig.config?.apiKey) throw new Error('Clé OpenAI manquante');
+            const r = await fetch('https://api.openai.com/v1/models', {
+              headers: { 'Authorization': `Bearer ${testConfig.config.apiKey}` },
+            });
+            if (!r.ok) throw new Error('Clé API OpenAI invalide');
+            const d = await r.json();
+            result = { success: true, message: `OpenAI : ${d.data?.length || 0} modèles disponibles` };
+            break;
+          }
+
+          case 'gemini': {
+            if (!testConfig.config?.apiKey) throw new Error('Clé Gemini manquante');
+            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${testConfig.config.apiKey}`);
+            if (!r.ok) throw new Error('Clé API Gemini invalide');
+            const d = await r.json();
+            result = { success: true, message: `Gemini : ${d.models?.length || 0} modèles disponibles` };
+            break;
+          }
+
           case 'railway': {
             if (!testConfig.config?.apiKey) throw new Error('Clé Railway manquante');
             const r = await fetch('https://backboard.railway.app/graphql/v2', {

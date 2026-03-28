@@ -281,6 +281,26 @@ export async function testServiceConnection(serviceName: string, environment: Se
         return { success: true, message: `Temporal configuré : ${cfg.config.address} / ${cfg.config.namespace || 'default'}` };
       }
 
+      case 'openai': {
+        const cfg = await serviceApiRepository.getConfig('openai' as any, environment) as any;
+        if (!cfg?.config?.apiKey) return { success: false, message: 'Clé OpenAI non configurée' };
+        const r = await fetch('https://api.openai.com/v1/models', {
+          headers: { 'Authorization': `Bearer ${cfg.config.apiKey}` }
+        });
+        if (!r.ok) return { success: false, message: 'Clé API OpenAI invalide' };
+        const d = await r.json();
+        return { success: true, message: `OpenAI : ${d.data?.length || 0} modèles disponibles` };
+      }
+
+      case 'gemini': {
+        const cfg = await serviceApiRepository.getConfig('gemini' as any, environment) as any;
+        if (!cfg?.config?.apiKey) return { success: false, message: 'Clé Gemini non configurée' };
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cfg.config.apiKey}`);
+        if (!r.ok) return { success: false, message: 'Clé API Gemini invalide' };
+        const d = await r.json();
+        return { success: true, message: `Gemini : ${d.models?.length || 0} modèles disponibles` };
+      }
+
       default:
         return { success: false, message: `Unknown service: ${serviceName}` };
     }

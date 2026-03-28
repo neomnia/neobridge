@@ -39,6 +39,8 @@ const serviceCategories = [
       { id: "railway",  name: "Railway",        icon: "railway",  type: "neobridge", description: "Déploiement services backend" },
       { id: "anthropic",name: "Anthropic",      icon: "anthropic",type: "neobridge", description: "API Claude — sessions agents" },
       { id: "mistral",  name: "Mistral",        icon: "mistral",  type: "neobridge", description: "API Mistral — PM orchestration" },
+      { id: "openai",   name: "OpenAI",         icon: "openai",   type: "neobridge", description: "API ChatGPT / GPT-4 — agents IA" },
+      { id: "gemini",   name: "Google Gemini",  icon: "gemini",   type: "neobridge", description: "API Gemini — vision & multimodal" },
     ]
   },
   {
@@ -141,6 +143,26 @@ function ServiceIcon({ service, size = "sm" }: { service: (typeof services)[0]; 
       <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
         <rect width="32" height="32" rx="6" fill="#FF7000"/>
         <text x="16" y="22" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" fontFamily="Arial">M</text>
+      </svg>
+    )
+  }
+
+  // OpenAI - Black/White
+  if (service.id === "openai") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#000000"/>
+        <path d="M16 6.5c-2.1 0-3.9 1.3-4.7 3.2-1.7.3-3 1.6-3.3 3.3C6.2 14 5 15.9 5 18c0 2.8 2.2 5 5 5h12c2.8 0 5-2.2 5-5 0-2.1-1.2-3.9-3-4.8-.3-1.7-1.6-3-3.3-3.3-.8-1.9-2.6-3.2-4.7-3.4z" fill="white" opacity="0.9"/>
+      </svg>
+    )
+  }
+
+  // Gemini - Google colors
+  if (service.id === "gemini") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#1A73E8"/>
+        <path d="M16 7l2.5 6.5H25l-5.5 4 2 6.5L16 20l-5.5 4 2-6.5L7 13.5h6.5z" fill="white"/>
       </svg>
     )
   }
@@ -342,6 +364,8 @@ export default function AdminApiPage() {
   const [railwayConfig, setRailwayConfig] = useState({ apiKey: "" })
   const [anthropicConfig, setAnthropicConfig] = useState({ apiKey: "" })
   const [mistralConfig, setMistralConfig] = useState({ apiKey: "" })
+  const [openaiConfig, setOpenaiConfig] = useState({ apiKey: "" })
+  const [geminiConfig, setGeminiConfig] = useState({ apiKey: "" })
   const [zohoAuthCode, setZohoAuthCode] = useState("")
   const [exchangingZoho, setExchangingZoho] = useState(false)
 
@@ -460,6 +484,12 @@ export default function AdminApiPage() {
             case "mistral":
               setMistralConfig({ apiKey: data.data.config.apiKey || "" })
               break
+            case "openai":
+              setOpenaiConfig({ apiKey: data.data.config.apiKey || "" })
+              break
+            case "gemini":
+              setGeminiConfig({ apiKey: data.data.config.apiKey || "" })
+              break
           }
         }
       }
@@ -487,6 +517,8 @@ export default function AdminApiPage() {
     setRailwayConfig({ apiKey: "" })
     setAnthropicConfig({ apiKey: "" })
     setMistralConfig({ apiKey: "" })
+    setOpenaiConfig({ apiKey: "" })
+    setGeminiConfig({ apiKey: "" })
     setShowKey(false)
     setShowSecretKey(false)
     setModalTestResult(null)
@@ -609,6 +641,14 @@ export default function AdminApiPage() {
         case "mistral":
           if (!mistralConfig.apiKey) throw new Error("La clé API Mistral est requise")
           config = mistralConfig
+          break
+        case "openai":
+          if (!openaiConfig.apiKey) throw new Error("La clé API OpenAI est requise")
+          config = openaiConfig
+          break
+        case "gemini":
+          if (!geminiConfig.apiKey) throw new Error("La clé API Gemini est requise")
+          config = geminiConfig
           break
       }
 
@@ -806,6 +846,14 @@ export default function AdminApiPage() {
         case "mistral":
           if (!mistralConfig.apiKey) throw new Error("La clé API Mistral est requise")
           config = mistralConfig
+          break
+        case "openai":
+          if (!openaiConfig.apiKey) throw new Error("La clé API OpenAI est requise")
+          config = openaiConfig
+          break
+        case "gemini":
+          if (!geminiConfig.apiKey) throw new Error("La clé API Gemini est requise")
+          config = geminiConfig
           break
       }
 
@@ -1964,6 +2012,50 @@ export default function AdminApiPage() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">console.mistral.ai → API Keys</p>
+            </div>
+          </div>
+        )
+
+      case "openai":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Key *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="sk-proj-..."
+                  value={openaiConfig.apiKey}
+                  onChange={(e) => setOpenaiConfig({ apiKey: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">platform.openai.com → API Keys</p>
+            </div>
+          </div>
+        )
+
+      case "gemini":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Key *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="AIza..."
+                  value={geminiConfig.apiKey}
+                  onChange={(e) => setGeminiConfig({ apiKey: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">aistudio.google.com → Get API Key</p>
             </div>
           </div>
         )
