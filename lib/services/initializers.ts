@@ -183,6 +183,98 @@ export async function testServiceConnection(serviceName: string, environment: Se
         await initLago(environment);
         return { success: true, message: 'Lago configuration is valid' };
 
+      // NeoBridge services — test with live API call on saved config
+      case 'github_token': {
+        const cfg = await serviceApiRepository.getConfig('github_token' as any, environment) as any;
+        if (!cfg?.config?.personalAccessToken) return { success: false, message: 'Token GitHub non configuré' };
+        const r = await fetch('https://api.github.com/user', {
+          headers: { 'Authorization': `Bearer ${cfg.config.personalAccessToken}`, 'Accept': 'application/vnd.github+json' }
+        });
+        if (!r.ok) return { success: false, message: 'Token GitHub invalide ou expiré' };
+        const u = await r.json();
+        return { success: true, message: `GitHub : @${u.login} (${u.public_repos} repos)` };
+      }
+
+      case 'vercel': {
+        const cfg = await serviceApiRepository.getConfig('vercel' as any, environment) as any;
+        if (!cfg?.config?.apiToken) return { success: false, message: 'Token Vercel non configuré' };
+        const r = await fetch('https://api.vercel.com/v2/user', {
+          headers: { 'Authorization': `Bearer ${cfg.config.apiToken}` }
+        });
+        if (!r.ok) return { success: false, message: 'Token Vercel invalide' };
+        const u = await r.json();
+        return { success: true, message: `Vercel : ${u.user?.username || u.user?.email}` };
+      }
+
+      case 'notion': {
+        const cfg = await serviceApiRepository.getConfig('notion' as any, environment) as any;
+        if (!cfg?.config?.apiKey) return { success: false, message: 'Clé Notion non configurée' };
+        const r = await fetch('https://api.notion.com/v1/users/me', {
+          headers: { 'Authorization': `Bearer ${cfg.config.apiKey}`, 'Notion-Version': '2022-06-28' }
+        });
+        if (!r.ok) return { success: false, message: 'Clé API Notion invalide' };
+        const u = await r.json();
+        return { success: true, message: `Notion : ${u.name || u.bot?.owner?.user?.name || u.id}` };
+      }
+
+      case 'anthropic': {
+        const cfg = await serviceApiRepository.getConfig('anthropic' as any, environment) as any;
+        if (!cfg?.config?.apiKey) return { success: false, message: 'Clé Anthropic non configurée' };
+        const r = await fetch('https://api.anthropic.com/v1/models', {
+          headers: { 'x-api-key': cfg.config.apiKey, 'anthropic-version': '2023-06-01' }
+        });
+        if (!r.ok) return { success: false, message: 'Clé API Anthropic invalide' };
+        const d = await r.json();
+        return { success: true, message: `Anthropic : ${d.data?.length || 0} modèles disponibles` };
+      }
+
+      case 'mistral': {
+        const cfg = await serviceApiRepository.getConfig('mistral' as any, environment) as any;
+        if (!cfg?.config?.apiKey) return { success: false, message: 'Clé Mistral non configurée' };
+        const r = await fetch('https://api.mistral.ai/v1/models', {
+          headers: { 'Authorization': `Bearer ${cfg.config.apiKey}` }
+        });
+        if (!r.ok) return { success: false, message: 'Clé API Mistral invalide' };
+        const d = await r.json();
+        return { success: true, message: `Mistral : ${d.data?.length || 0} modèles disponibles` };
+      }
+
+      case 'railway': {
+        const cfg = await serviceApiRepository.getConfig('railway' as any, environment) as any;
+        if (!cfg?.config?.apiKey) return { success: false, message: 'Clé Railway non configurée' };
+        const r = await fetch('https://backboard.railway.app/graphql/v2', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${cfg.config.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: '{ me { id name } }' })
+        });
+        if (!r.ok) return { success: false, message: 'Clé API Railway invalide' };
+        const d = await r.json();
+        if (d.errors) return { success: false, message: 'Token Railway invalide ou expiré' };
+        return { success: true, message: `Railway : ${d.data?.me?.name || d.data?.me?.id}` };
+      }
+
+      case 'zoho': {
+        const cfg = await serviceApiRepository.getConfig('zoho' as any, environment) as any;
+        if (!cfg?.config?.clientId || !cfg?.config?.refreshToken) return { success: false, message: 'Credentials Zoho non configurés' };
+        // Try to get an access token using the refresh token
+        const params = new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: cfg.config.clientId,
+          client_secret: cfg.config.clientSecret,
+          refresh_token: cfg.config.refreshToken,
+        });
+        const r = await fetch('https://accounts.zoho.eu/oauth/v2/token', { method: 'POST', body: params });
+        const d = await r.json();
+        if (d.error) return { success: false, message: `Zoho OAuth erreur : ${d.error}` };
+        return { success: true, message: `Zoho : access token obtenu (expire dans ${Math.round((d.expires_in || 3600) / 60)} min)` };
+      }
+
+      case 'temporal': {
+        const cfg = await serviceApiRepository.getConfig('temporal' as any, environment) as any;
+        if (!cfg?.config?.address) return { success: false, message: 'Adresse Temporal non configurée' };
+        return { success: true, message: `Temporal configuré : ${cfg.config.address} / ${cfg.config.namespace || 'default'}` };
+      }
+
       default:
         return { success: false, message: `Unknown service: ${serviceName}` };
     }
