@@ -116,6 +116,103 @@ export async function POST(
             result = { success: true, message: 'AWS credentials format is valid' };
             break;
 
+          case 'github_token': {
+            if (!testConfig.config?.personalAccessToken) throw new Error('Token GitHub manquant');
+            const r = await fetch('https://api.github.com/user', {
+              headers: { 'Authorization': `Bearer ${testConfig.config.personalAccessToken}`, 'Accept': 'application/vnd.github+json' },
+            });
+            if (!r.ok) throw new Error('Token GitHub invalide ou expiré');
+            const u = await r.json();
+            result = { success: true, message: `GitHub : @${u.login} (${u.public_repos} repos publics)` };
+            break;
+          }
+
+          case 'vercel': {
+            if (!testConfig.config?.apiToken) throw new Error('Token Vercel manquant');
+            const r = await fetch('https://api.vercel.com/v2/user', {
+              headers: { 'Authorization': `Bearer ${testConfig.config.apiToken}` },
+            });
+            if (!r.ok) throw new Error('Token Vercel invalide');
+            const u = await r.json();
+            result = { success: true, message: `Vercel : ${u.user?.username || u.user?.email}` };
+            break;
+          }
+
+          case 'notion': {
+            if (!testConfig.config?.apiKey) throw new Error('Clé Notion manquante');
+            const r = await fetch('https://api.notion.com/v1/users/me', {
+              headers: { 'Authorization': `Bearer ${testConfig.config.apiKey}`, 'Notion-Version': '2022-06-28' },
+            });
+            if (!r.ok) throw new Error('Clé API Notion invalide');
+            const u = await r.json();
+            result = { success: true, message: `Notion : ${u.name || u.bot?.owner?.user?.name || u.id}` };
+            break;
+          }
+
+          case 'anthropic': {
+            if (!testConfig.config?.apiKey) throw new Error('Clé Anthropic manquante');
+            const r = await fetch('https://api.anthropic.com/v1/models', {
+              headers: { 'x-api-key': testConfig.config.apiKey, 'anthropic-version': '2023-06-01' },
+            });
+            if (!r.ok) throw new Error('Clé API Anthropic invalide');
+            const d = await r.json();
+            result = { success: true, message: `Anthropic : ${d.data?.length || 0} modèles disponibles` };
+            break;
+          }
+
+          case 'mistral': {
+            if (!testConfig.config?.apiKey) throw new Error('Clé Mistral manquante');
+            const r = await fetch('https://api.mistral.ai/v1/models', {
+              headers: { 'Authorization': `Bearer ${testConfig.config.apiKey}` },
+            });
+            if (!r.ok) throw new Error('Clé API Mistral invalide');
+            const d = await r.json();
+            result = { success: true, message: `Mistral : ${d.data?.length || 0} modèles disponibles` };
+            break;
+          }
+
+          case 'railway': {
+            if (!testConfig.config?.apiKey) throw new Error('Clé Railway manquante');
+            const r = await fetch('https://backboard.railway.app/graphql/v2', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${testConfig.config.apiKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: '{ me { id name } }' }),
+            });
+            if (!r.ok) throw new Error('Clé API Railway invalide');
+            const d = await r.json();
+            if (d.errors) throw new Error('Token Railway invalide ou expiré');
+            result = { success: true, message: `Railway : ${d.data?.me?.name || d.data?.me?.id}` };
+            break;
+          }
+
+          case 'zoho': {
+            if (!testConfig.config?.clientId || !testConfig.config?.refreshToken) throw new Error('Client ID et Refresh Token Zoho requis');
+            for (const domain of ['com', 'eu', 'in']) {
+              const params = new URLSearchParams({
+                grant_type: 'refresh_token',
+                client_id: testConfig.config.clientId,
+                client_secret: testConfig.config.clientSecret || '',
+                refresh_token: testConfig.config.refreshToken,
+              });
+              try {
+                const r = await fetch(`https://accounts.zoho.${domain}/oauth/v2/token`, { method: 'POST', body: params });
+                const d = await r.json();
+                if (d.access_token) {
+                  result = { success: true, message: `Zoho connecté (domaine .${domain}) — token valide ${Math.round((d.expires_in || 3600) / 60)} min` };
+                  break;
+                }
+              } catch { /* try next */ }
+            }
+            if (!result!.success) throw new Error('Zoho OAuth échoué sur tous les domaines');
+            break;
+          }
+
+          case 'temporal': {
+            if (!testConfig.config?.address) throw new Error('Adresse Temporal manquante');
+            result = { success: true, message: `Temporal configuré : ${testConfig.config.address} / ${testConfig.config.namespace || 'default'}` };
+            break;
+          }
+
           default:
             result = { success: false, message: `Unknown service: ${service}` };
         }
