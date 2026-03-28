@@ -69,7 +69,7 @@ export async function POST(
     const validServices = [
       'stripe', 'paypal', 'scaleway', 'resend', 'aws', 'lago',
       'github', 'google', 'facebook', 'microsoft',
-      'zoho', 'temporal', 'notion', 'github_token', 'railway', 'anthropic', 'mistral', 'vercel', 'openai', 'gemini', 'perplexity',
+      'zoho', 'temporal', 'notion', 'github_token', 'railway', 'anthropic', 'mistral', 'vercel', 'openai', 'gemini', 'perplexity', 'neon',
     ];
     if (!validServices.includes(service)) {
       return NextResponse.json(

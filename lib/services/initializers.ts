@@ -313,6 +313,18 @@ export async function testServiceConnection(serviceName: string, environment: Se
         return { success: true, message: 'Perplexity : clé API valide' };
       }
 
+      case 'neon': {
+        const cfg = await serviceApiRepository.getConfig('neon' as any, environment) as any;
+        if (!cfg?.config?.apiKey) return { success: false, message: 'Clé Neon non configurée' };
+        const r = await fetch('https://console.neon.tech/api/v2/projects', {
+          headers: { 'Authorization': `Bearer ${cfg.config.apiKey}`, 'Accept': 'application/json' },
+        });
+        if (r.status === 401) return { success: false, message: 'Clé API Neon invalide' };
+        if (!r.ok) return { success: false, message: `Erreur Neon API (${r.status})` };
+        const d = await r.json();
+        return { success: true, message: `Neon : ${d.projects?.length ?? 0} projet(s) accessible(s)` };
+      }
+
       default:
         return { success: false, message: `Unknown service: ${serviceName}` };
     }

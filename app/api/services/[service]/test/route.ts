@@ -203,6 +203,18 @@ export async function POST(
             break;
           }
 
+          case 'neon': {
+            if (!testConfig.config?.apiKey) throw new Error('Clé Neon manquante');
+            const r = await fetch('https://console.neon.tech/api/v2/projects', {
+              headers: { 'Authorization': `Bearer ${testConfig.config.apiKey}`, 'Accept': 'application/json' },
+            });
+            if (r.status === 401) throw new Error('Clé API Neon invalide');
+            if (!r.ok) throw new Error(`Erreur Neon API (${r.status})`);
+            const d = await r.json();
+            result = { success: true, message: `Neon : ${d.projects?.length ?? 0} projet(s) accessible(s)` };
+            break;
+          }
+
           case 'railway': {
             if (!testConfig.config?.apiKey) throw new Error('Clé Railway manquante');
             const r = await fetch('https://backboard.railway.app/graphql/v2', {

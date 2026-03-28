@@ -43,6 +43,7 @@ const serviceCategories = [
       { id: "openai",   name: "OpenAI",         icon: "openai",   type: "neobridge", description: "API ChatGPT / GPT-4 — agents IA" },
       { id: "gemini",   name: "Google Gemini",  icon: "gemini",   type: "neobridge", description: "API Gemini — vision & multimodal" },
       { id: "perplexity", name: "Perplexity",   icon: "perplexity", type: "neobridge", description: "API Perplexity — recherche web IA" },
+      { id: "neon",       name: "Neon",          icon: "neon",       type: "neobridge", description: "PostgreSQL serverless — API key" },
     ]
   },
   {
@@ -155,6 +156,16 @@ function ServiceIcon({ service, size = "sm" }: { service: (typeof services)[0]; 
       <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
         <rect width="32" height="32" rx="6" fill="#000000"/>
         <path d="M16 8L26 24H6L16 8Z" fill="white"/>
+      </svg>
+    )
+  }
+
+  // Neon - Green
+  if (service.id === "neon") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#00E599"/>
+        <path d="M8 22V10l8 7 8-7v12l-8-5z" fill="#0D0D0D"/>
       </svg>
     )
   }
@@ -390,6 +401,7 @@ export default function AdminApiPage() {
   const [openaiConfig, setOpenaiConfig] = useState({ apiKey: "" })
   const [geminiConfig, setGeminiConfig] = useState({ apiKey: "" })
   const [perplexityConfig, setPerplexityConfig] = useState({ apiKey: "" })
+  const [neonConfig, setNeonConfig] = useState({ apiKey: "" })
   const [vercelConfig, setVercelConfig] = useState({ apiToken: "" })
   const [serviceSearch, setServiceSearch] = useState("")
   const [zohoAuthCode, setZohoAuthCode] = useState("")
@@ -519,6 +531,9 @@ export default function AdminApiPage() {
             case "perplexity":
               setPerplexityConfig({ apiKey: data.data.config.apiKey || "" })
               break
+            case "neon":
+              setNeonConfig({ apiKey: data.data.config.apiKey || "" })
+              break
             case "vercel":
               setVercelConfig({ apiToken: data.data.config.apiToken || "" })
               break
@@ -552,6 +567,7 @@ export default function AdminApiPage() {
     setOpenaiConfig({ apiKey: "" })
     setGeminiConfig({ apiKey: "" })
     setPerplexityConfig({ apiKey: "" })
+    setNeonConfig({ apiKey: "" })
     setVercelConfig({ apiToken: "" })
     setServiceSearch("")
     setShowKey(false)
@@ -688,6 +704,10 @@ export default function AdminApiPage() {
         case "perplexity":
           if (!perplexityConfig.apiKey) throw new Error("La clé API Perplexity est requise")
           config = perplexityConfig
+          break
+        case "neon":
+          if (!neonConfig.apiKey) throw new Error("La clé API Neon est requise")
+          config = neonConfig
           break
         case "vercel":
           if (!vercelConfig.apiToken) throw new Error("Le token API Vercel est requis")
@@ -901,6 +921,10 @@ export default function AdminApiPage() {
         case "perplexity":
           if (!perplexityConfig.apiKey) throw new Error("La clé API Perplexity est requise")
           config = perplexityConfig
+          break
+        case "neon":
+          if (!neonConfig.apiKey) throw new Error("La clé API Neon est requise")
+          config = neonConfig
           break
         case "vercel":
           if (!vercelConfig.apiToken) throw new Error("Le token API Vercel est requis")
@@ -2129,6 +2153,28 @@ export default function AdminApiPage() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">www.perplexity.ai → Settings → API</p>
+            </div>
+          </div>
+        )
+
+      case "neon":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Key *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="neon_..."
+                  value={neonConfig.apiKey}
+                  onChange={(e) => setNeonConfig({ apiKey: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">console.neon.tech → Account → API Keys</p>
             </div>
           </div>
         )
