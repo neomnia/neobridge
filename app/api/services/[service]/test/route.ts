@@ -257,6 +257,71 @@ export async function POST(
             break;
           }
 
+          case 'cloudflare': {
+            // Prefer scoped API Token; fallback to Global API Key + email
+            if (!testConfig.config?.apiToken && !testConfig.config?.globalApiKey) {
+              throw new Error('API Token ou Global API Key Cloudflare requis');
+            }
+            if (testConfig.config?.apiToken) {
+              const r = await fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', {
+                headers: { 'Authorization': `Bearer ${testConfig.config.apiToken}`, 'Content-Type': 'application/json' },
+              });
+              if (!r.ok) throw new Error('API Token Cloudflare invalide');
+              const d = await r.json();
+              if (!d.success) throw new Error(d.errors?.[0]?.message ?? 'Token Cloudflare invalide');
+              result = { success: true, message: `Cloudflare : token valide — statut "${d.result?.status}"` };
+            } else {
+              // Global API Key
+              if (!testConfig.config?.email) throw new Error('Email requis avec Global API Key');
+              const r = await fetch('https://api.cloudflare.com/client/v4/user', {
+                headers: { 'X-Auth-Email': testConfig.config.email, 'X-Auth-Key': testConfig.config.globalApiKey, 'Content-Type': 'application/json' },
+              });
+              if (!r.ok) throw new Error('Global API Key Cloudflare invalide');
+              const d = await r.json();
+              if (!d.success) throw new Error(d.errors?.[0]?.message ?? 'Authentification Cloudflare échouée');
+              result = { success: true, message: `Cloudflare : connecté en tant que ${d.result?.email}` };
+            }
+            break;
+          }
+
+          case 'openprovider': {
+            if (!testConfig.config?.username || !testConfig.config?.password) {
+              throw new Error('Username et password OpenProvider requis');
+            }
+            const r = await fetch('https://api.openprovider.eu/v1beta/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: testConfig.config.username, password: testConfig.config.password }),
+            });
+            if (!r.ok) throw new Error('Identifiants OpenProvider invalides');
+            const d = await r.json();
+            if (d.code !== 0 || !d.data?.token) throw new Error(d.desc ?? 'Authentification OpenProvider échouée');
+            // Verify token by getting balance
+            const balance = await fetch('https://api.openprovider.eu/v1beta/balance', {
+              headers: { 'Authorization': `Bearer ${d.data.token}` },
+            });
+            const bd = balance.ok ? await balance.json() : null;
+            const amount = bd?.data?.balance ?? null;
+            result = { success: true, message: `OpenProvider : connecté${amount !== null ? ` — solde ${amount} EUR` : ''}` };
+            break;
+          }
+
+          case 'internetbs': {
+            if (!testConfig.config?.apiKey || !testConfig.config?.password) {
+              throw new Error('API Key et Password Internet.bs requis');
+            }
+            const url = new URL('https://api.internet.bs/Account/Balance/Get');
+            url.searchParams.set('ApiKey', testConfig.config.apiKey);
+            url.searchParams.set('Password', testConfig.config.password);
+            url.searchParams.set('ResponseFormat', 'json');
+            const r = await fetch(url.toString());
+            if (!r.ok) throw new Error(`Erreur Internet.bs (${r.status})`);
+            const d = await r.json();
+            if (d.status === 'FAILURE' || d.code === 0) throw new Error(d.message ?? 'Identifiants Internet.bs invalides');
+            result = { success: true, message: `Internet.bs : connecté — solde ${d.balance ?? '?'} ${d.currency ?? ''}` };
+            break;
+          }
+
           default:
             result = { success: false, message: `Unknown service: ${service}` };
         }

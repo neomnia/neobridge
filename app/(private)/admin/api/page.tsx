@@ -47,6 +47,16 @@ const serviceCategories = [
     ]
   },
   {
+    id: "domains",
+    label: "🌐 Domaines & Infrastructure",
+    description: "Registrars, DNS et gestion de domaines",
+    services: [
+      { id: "cloudflare",   name: "Cloudflare",   icon: "cloudflare",   type: "neobridge", description: "DNS, CDN, zones & domaines — API Token" },
+      { id: "openprovider", name: "OpenProvider",  icon: "openprovider",  type: "neobridge", description: "Registrar international — username/password" },
+      { id: "internetbs",   name: "Internet.bs",   icon: "internetbs",    type: "neobridge", description: "Registrar domaines — API Key + Password" },
+    ]
+  },
+  {
     id: "payment",
     label: "💳 Paiement",
     description: "Services de facturation et paiement",
@@ -308,6 +318,41 @@ function ServiceIcon({ service, size = "sm" }: { service: (typeof services)[0]; 
     )
   }
 
+  // Cloudflare - Orange flame
+  if (service.id === "cloudflare") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#F48120"/>
+        <path d="M20.5 19.2c.1-.3.1-.7 0-1l-1.1-3.8c-.1-.3-.4-.5-.7-.5H8l-.2.8 5 1.6-3 2.9h10.7z" fill="white"/>
+        <path d="M21.5 14c-.4 0-.8.2-1 .5l-.7 2.4c-.1.3 0 .6.2.8.2.2.5.3.8.3h3.8c.3 0 .6-.2.7-.5l.4-1.5c.1-.3 0-.6-.2-.8-.2-.2-.5-.3-.8-.3H21.5z" fill="white" opacity="0.8"/>
+      </svg>
+    )
+  }
+
+  // OpenProvider - Blue globe
+  if (service.id === "openprovider") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#0066CC"/>
+        <circle cx="16" cy="16" r="8" stroke="white" strokeWidth="1.5" fill="none"/>
+        <ellipse cx="16" cy="16" rx="4" ry="8" stroke="white" strokeWidth="1.5" fill="none"/>
+        <line x1="8" y1="16" x2="24" y2="16" stroke="white" strokeWidth="1.5"/>
+        <line x1="10" y1="11" x2="22" y2="11" stroke="white" strokeWidth="1"/>
+        <line x1="10" y1="21" x2="22" y2="21" stroke="white" strokeWidth="1"/>
+      </svg>
+    )
+  }
+
+  // Internet.bs - Green domain registrar
+  if (service.id === "internetbs") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#1A8C3A"/>
+        <text x="16" y="20" textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" fontFamily="monospace">.BS</text>
+      </svg>
+    )
+  }
+
   // Default: emoji fallback
   return <span className={size === "lg" ? "text-2xl" : "text-base"}>{service.icon}</span>
 }
@@ -403,6 +448,9 @@ export default function AdminApiPage() {
   const [perplexityConfig, setPerplexityConfig] = useState({ apiKey: "" })
   const [neonConfig, setNeonConfig] = useState({ apiKey: "" })
   const [vercelConfig, setVercelConfig] = useState({ apiToken: "" })
+  const [cloudflareConfig, setCloudflareConfig] = useState({ apiToken: "", accountId: "", email: "", globalApiKey: "" })
+  const [openproviderConfig, setOpenproviderConfig] = useState({ username: "", password: "" })
+  const [internetbsConfig, setInternetbsConfig] = useState({ apiKey: "", password: "" })
   const [serviceSearch, setServiceSearch] = useState("")
   const [zohoAuthCode, setZohoAuthCode] = useState("")
   const [exchangingZoho, setExchangingZoho] = useState(false)
@@ -537,6 +585,20 @@ export default function AdminApiPage() {
             case "vercel":
               setVercelConfig({ apiToken: data.data.config.apiToken || "" })
               break
+            case "cloudflare":
+              setCloudflareConfig({
+                apiToken: data.data.config.apiToken || "",
+                accountId: data.data.config.accountId || "",
+                email: data.data.config.email || "",
+                globalApiKey: data.data.config.globalApiKey || "",
+              })
+              break
+            case "openprovider":
+              setOpenproviderConfig({ username: data.data.config.username || "", password: data.data.config.password || "" })
+              break
+            case "internetbs":
+              setInternetbsConfig({ apiKey: data.data.config.apiKey || "", password: data.data.config.password || "" })
+              break
           }
         }
       }
@@ -569,6 +631,9 @@ export default function AdminApiPage() {
     setPerplexityConfig({ apiKey: "" })
     setNeonConfig({ apiKey: "" })
     setVercelConfig({ apiToken: "" })
+    setCloudflareConfig({ apiToken: "", accountId: "", email: "", globalApiKey: "" })
+    setOpenproviderConfig({ username: "", password: "" })
+    setInternetbsConfig({ apiKey: "", password: "" })
     setServiceSearch("")
     setShowKey(false)
     setShowSecretKey(false)
@@ -712,6 +777,19 @@ export default function AdminApiPage() {
         case "vercel":
           if (!vercelConfig.apiToken) throw new Error("Le token API Vercel est requis")
           config = vercelConfig
+          break
+        case "cloudflare":
+          if (!cloudflareConfig.apiToken && !cloudflareConfig.globalApiKey) throw new Error("API Token ou Global API Key requis")
+          if (cloudflareConfig.globalApiKey && !cloudflareConfig.email) throw new Error("Email requis avec Global API Key")
+          config = cloudflareConfig
+          break
+        case "openprovider":
+          if (!openproviderConfig.username || !openproviderConfig.password) throw new Error("Username et password OpenProvider requis")
+          config = openproviderConfig
+          break
+        case "internetbs":
+          if (!internetbsConfig.apiKey || !internetbsConfig.password) throw new Error("API Key et Password Internet.bs requis")
+          config = internetbsConfig
           break
       }
 
@@ -929,6 +1007,19 @@ export default function AdminApiPage() {
         case "vercel":
           if (!vercelConfig.apiToken) throw new Error("Le token API Vercel est requis")
           config = vercelConfig
+          break
+        case "cloudflare":
+          if (!cloudflareConfig.apiToken && !cloudflareConfig.globalApiKey) throw new Error("API Token ou Global API Key requis")
+          if (cloudflareConfig.globalApiKey && !cloudflareConfig.email) throw new Error("Email requis avec Global API Key")
+          config = cloudflareConfig
+          break
+        case "openprovider":
+          if (!openproviderConfig.username || !openproviderConfig.password) throw new Error("Username et password OpenProvider requis")
+          config = openproviderConfig
+          break
+        case "internetbs":
+          if (!internetbsConfig.apiKey || !internetbsConfig.password) throw new Error("API Key et Password Internet.bs requis")
+          config = internetbsConfig
           break
       }
 
@@ -2197,6 +2288,125 @@ export default function AdminApiPage() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">vercel.com → Account Settings → Tokens</p>
+            </div>
+          </div>
+        )
+
+      case "cloudflare":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Token <span className="text-muted-foreground text-xs">(recommandé)</span></Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="cloudflare API token..."
+                  value={cloudflareConfig.apiToken}
+                  onChange={(e) => setCloudflareConfig(c => ({ ...c, apiToken: e.target.value }))}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">dash.cloudflare.com → My Profile → API Tokens → Create Token</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Account ID <span className="text-muted-foreground text-xs">(optionnel — requis pour créer des zones)</span></Label>
+              <Input
+                placeholder="compte Cloudflare ID..."
+                value={cloudflareConfig.accountId}
+                onChange={(e) => setCloudflareConfig(c => ({ ...c, accountId: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">dash.cloudflare.com → partie droite → Account ID</p>
+            </div>
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-muted-foreground text-xs">— Ou Global API Key (moins recommandé) —</Label>
+              <Input
+                type="email"
+                placeholder="email@compte.com"
+                value={cloudflareConfig.email}
+                onChange={(e) => setCloudflareConfig(c => ({ ...c, email: e.target.value }))}
+              />
+              <div className="relative">
+                <Input
+                  type={showSecretKey ? "text" : "password"}
+                  placeholder="Global API Key..."
+                  value={cloudflareConfig.globalApiKey}
+                  onChange={(e) => setCloudflareConfig(c => ({ ...c, globalApiKey: e.target.value }))}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowSecretKey(!showSecretKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+
+      case "openprovider":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Username *</Label>
+              <Input
+                placeholder="votre login OpenProvider"
+                value={openproviderConfig.username}
+                onChange={(e) => setOpenproviderConfig(c => ({ ...c, username: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Password *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="mot de passe OpenProvider"
+                  value={openproviderConfig.password}
+                  onChange={(e) => setOpenproviderConfig(c => ({ ...c, password: e.target.value }))}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">openprovider.com → Mon compte → Accès API</p>
+            </div>
+          </div>
+        )
+
+      case "internetbs":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Key *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="clé API Internet.bs"
+                  value={internetbsConfig.apiKey}
+                  onChange={(e) => setInternetbsConfig(c => ({ ...c, apiKey: e.target.value }))}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Password *</Label>
+              <div className="relative">
+                <Input
+                  type={showSecretKey ? "text" : "password"}
+                  placeholder="mot de passe API Internet.bs"
+                  value={internetbsConfig.password}
+                  onChange={(e) => setInternetbsConfig(c => ({ ...c, password: e.target.value }))}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowSecretKey(!showSecretKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">internetbs.net → Mon compte → API → Gérer les identifiants API</p>
             </div>
           </div>
         )

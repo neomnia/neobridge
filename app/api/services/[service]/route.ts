@@ -70,6 +70,7 @@ export async function POST(
       'stripe', 'paypal', 'scaleway', 'resend', 'aws', 'lago',
       'github', 'google', 'facebook', 'microsoft',
       'zoho', 'temporal', 'notion', 'github_token', 'railway', 'anthropic', 'mistral', 'vercel', 'openai', 'gemini', 'perplexity', 'neon',
+      'cloudflare', 'openprovider', 'internetbs',
     ];
     if (!validServices.includes(service)) {
       return NextResponse.json(
