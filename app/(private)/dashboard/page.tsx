@@ -38,12 +38,16 @@ const MOCK_TEAM: Team = {
 
 async function fetchTeams(): Promise<Team[]> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/teams`, {
-      cache: 'no-store',
-    })
-    if (!res.ok) return []
-    const data: Team[] = await res.json()
-    return Array.isArray(data) ? data : []
+    const { db } = await import('@/db')
+    const { teams } = await import('@/db/schema')
+    const rows = await db.select().from(teams)
+    return rows.map(t => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      plan: (t.plan ?? 'free') as Team['plan'],
+      projectCount: 0,
+    }))
   } catch {
     return []
   }

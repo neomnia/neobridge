@@ -138,13 +138,7 @@ export default function LoginPage() {
         description: userRoles.length > 0 ? `Role: ${userRoles.join(', ')}` : 'Loading your dashboard...'
       });
 
-      // Check if user needs onboarding (no company assigned)
-      if (!data.user.companyId) {
-        router.push('/dashboard/company-management');
-      } else {
-        // Redirect to dashboard
-        router.push('/dashboard');
-      }
+      router.push('/dashboard');
     } catch (error) {
       toast.error('An error occurred during login');
       console.error('Login error:', error);
