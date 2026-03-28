@@ -14,13 +14,23 @@ import {
   GitBranch, GitCommit, User,
   ChevronRight, Brain, Activity, Zap,
   GitCommit as GitCommitIcon, FileText, Target, Bot,
+  TrendingUp, DollarSign, Cpu, Database,
 } from 'lucide-react'
+import { AreaChart, Area, BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
 type Tab = 'projects' | 'deployments' | 'logs'
+
+interface SpendingData {
+  vercel:    { current: number | null; period: string; breakdown?: { name: string; value: number }[] } | null
+  neon:      { computeHours: number; period: string; daily?: { date: string; computeHours: number }[] } | null
+  railway:   { current: number | null; period: string; cpu?: number | null; memory?: number | null } | null
+  anthropic: { current: number | null; inputTokens: number; outputTokens: number; period: string; daily?: { date: string; inputTokens: number; outputTokens: number }[] } | null
+  openai:    { tokens: number; period: string; daily?: { date: string; tokens: number }[] } | null
+}
 
 interface VercelProject  { id: string; name: string; source: 'vercel';   url: string;  status: string; updatedAt: string | null; framework: string | null }
 interface RailwayProject { id: string; name: string; source: 'railway';  url: string | null; status: string; updatedAt: string | null; services: string[]; environments: string[] }
@@ -124,7 +134,18 @@ export default function PanoptiqueePage() {
   const [logs, setLogs]               = useState<LogEntry[]>([])
   const [loadingDep, setLoadingDep]   = useState(false)
   const [loadingLogs, setLoadingLogs] = useState(false)
+  const [spending, setSpending]       = useState<SpendingData | null>(null)
+  const [loadingSpending, setLoadingSpending] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Load spending
+  const loadSpending = useCallback(async () => {
+    setLoadingSpending(true)
+    try {
+      const r = await fetch('/api/dashboard/spending')
+      if (r.ok) { const d = await r.json(); setSpending(d) }
+    } catch {} finally { setLoadingSpending(false) }
+  }, [])
 
   // Load projects
   const loadProjects = useCallback(async () => {
@@ -154,6 +175,7 @@ export default function PanoptiqueePage() {
     } catch {} finally { setLoadingLogs(false) }
   }, [logs.length])
 
+  useEffect(() => { loadSpending() }, [loadSpending])
   useEffect(() => { loadProjects(); const i = setInterval(loadProjects, 30000); return () => clearInterval(i) }, [loadProjects])
   useEffect(() => { if (tab === 'deployments') loadDeployments() }, [tab, loadDeployments])
   useEffect(() => { if (tab === 'logs') loadLogs() }, [tab, loadLogs])
@@ -282,6 +304,139 @@ export default function PanoptiqueePage() {
               ))}
             </div>
           )}
+
+          {/* ── Spending ──────────────────────────────────────────────── */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Dépenses du mois</h2>
+              {loadingSpending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            </div>
+
+            {/* Cost summary cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Vercel */}
+              <Card className="px-4 py-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                  <svg className="h-3 w-3" viewBox="0 0 32 32" fill="currentColor"><path d="M16 4L28 24H4L16 4Z"/></svg>Vercel
+                </div>
+                <p className="text-lg font-bold">
+                  {spending?.vercel?.current != null ? `$${spending.vercel.current.toFixed(2)}` : <span className="text-muted-foreground text-sm">—</span>}
+                </p>
+                {spending?.vercel?.period && <p className="text-[10px] text-muted-foreground mt-0.5">{spending.vercel.period}</p>}
+              </Card>
+              {/* Railway */}
+              <Card className="px-4 py-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                  <Server className="h-3 w-3" />Railway
+                </div>
+                <p className="text-lg font-bold">
+                  {spending?.railway?.current != null ? `$${spending.railway.current.toFixed(2)}` : <span className="text-muted-foreground text-sm">—</span>}
+                </p>
+                {spending?.railway?.period && <p className="text-[10px] text-muted-foreground mt-0.5">{spending.railway.period}</p>}
+              </Card>
+              {/* Neon */}
+              <Card className="px-4 py-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                  <Database className="h-3 w-3" />Neon
+                </div>
+                <p className="text-lg font-bold">
+                  {spending?.neon?.computeHours != null ? `${spending.neon.computeHours.toFixed(1)}h` : <span className="text-muted-foreground text-sm">—</span>}
+                </p>
+                {spending?.neon?.period && <p className="text-[10px] text-muted-foreground mt-0.5">compute · {spending.neon.period}</p>}
+              </Card>
+              {/* Anthropic */}
+              <Card className="px-4 py-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                  <TrendingUp className="h-3 w-3" />Anthropic
+                </div>
+                <p className="text-lg font-bold">
+                  {spending?.anthropic?.current != null ? `$${spending.anthropic.current.toFixed(2)}` : <span className="text-muted-foreground text-sm">—</span>}
+                </p>
+                {spending?.anthropic?.period && <p className="text-[10px] text-muted-foreground mt-0.5">{spending.anthropic.period}</p>}
+              </Card>
+            </div>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {/* Anthropic tokens area chart */}
+              <Card>
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <TrendingUp className="h-3.5 w-3.5" />Anthropic — tokens / jour
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  {spending?.anthropic?.daily && spending.anthropic.daily.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={100}>
+                      <AreaChart data={spending.anthropic.daily} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="gradIn" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor="#8b5cf6" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="gradOut" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor="#06b6d4" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="date" tick={{ fontSize: 9 }} tickFormatter={v => v.slice(5)} />
+                        <Tooltip
+                          contentStyle={{ fontSize: 11 }}
+                          formatter={(val: number, name: string) => [val.toLocaleString(), name === 'inputTokens' ? 'Input' : 'Output']}
+                          labelFormatter={v => v}
+                        />
+                        <Area type="monotone" dataKey="inputTokens"  stroke="#8b5cf6" fill="url(#gradIn)"  strokeWidth={1.5} dot={false} />
+                        <Area type="monotone" dataKey="outputTokens" stroke="#06b6d4" fill="url(#gradOut)" strokeWidth={1.5} dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-[100px] flex items-center justify-center text-xs text-muted-foreground">
+                      {loadingSpending ? 'Chargement…' : 'Pas de données'}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* OpenAI + Neon chart */}
+              <Card>
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <Cpu className="h-3.5 w-3.5" />OpenAI tokens · Neon compute
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  {spending?.openai?.daily && spending.openai.daily.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={100}>
+                      <BarChart data={spending.openai.daily} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                        <XAxis dataKey="date" tick={{ fontSize: 9 }} tickFormatter={v => v.slice(5)} />
+                        <Tooltip contentStyle={{ fontSize: 11 }} formatter={(val: number) => [val.toLocaleString(), 'Tokens']} />
+                        <Bar dataKey="tokens" fill="#10b981" radius={[2, 2, 0, 0]} maxBarSize={12} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : spending?.neon?.daily && spending.neon.daily.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={100}>
+                      <AreaChart data={spending.neon.daily} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="gradNeon" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="date" tick={{ fontSize: 9 }} tickFormatter={v => v.slice(5)} />
+                        <Tooltip contentStyle={{ fontSize: 11 }} formatter={(val: number) => [`${val.toFixed(2)}h`, 'Compute']} />
+                        <Area type="monotone" dataKey="computeHours" stroke="#10b981" fill="url(#gradNeon)" strokeWidth={1.5} dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-[100px] flex items-center justify-center text-xs text-muted-foreground">
+                      {loadingSpending ? 'Chargement…' : 'Pas de données'}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           {/* Pulse + Ghost Dev */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
