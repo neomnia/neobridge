@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
-  CheckCircle2, Clock, Plus, Send, Brain, Activity,
+  CheckCircle2, Clock, Plus, Search,
+  Brain, Activity,
   Terminal, ChevronRight, Loader2, Zap, GitCommit,
   FileText, Target, Bot, ExternalLink, Server,
 } from 'lucide-react'
@@ -123,8 +124,7 @@ export default function PanoptiqueePage() {
   const [railwayProjects, setRailwayProjects] = useState<RailwayProject[]>([])
   const [loading, setLoading]   = useState(true)
   const [pulse]                 = useState<PulseEvent[]>(MOCK_PULSE)
-  const [command, setCommand]   = useState('')
-  const [sending, setSending]   = useState(false)
+  const [search, setSearch]     = useState('')
   const inputRef                = useRef<HTMLInputElement>(null)
 
   const loadProjects = useCallback(async () => {
@@ -156,38 +156,35 @@ export default function PanoptiqueePage() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  const handleCommand = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!command.trim()) return
-    setSending(true)
-    await new Promise(r => setTimeout(r, 600))
-    setCommand('')
-    setSending(false)
-  }
-
-  const noProjects = vercelProjects.length === 0 && railwayProjects.length === 0
+  const q = search.toLowerCase().trim()
+  const filteredVercel  = q ? vercelProjects.filter(p  => p.name.toLowerCase().includes(q)  || p.framework?.toLowerCase().includes(q))  : vercelProjects
+  const filteredRailway = q ? railwayProjects.filter(p => p.name.toLowerCase().includes(q)  || p.services.some(s => s.toLowerCase().includes(q))) : railwayProjects
 
   return (
     <div className="space-y-4">
 
-      {/* ── Zone C — Command Bar ───────────────────────────────────── */}
-      <form onSubmit={handleCommand}>
-        <div className="flex items-center gap-2 p-3 border rounded-xl bg-muted/30 shadow-sm focus-within:ring-2 focus-within:ring-primary/30 transition-all">
-          <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="NeoBridge, … (⌘K)"
-            value={command}
-            onChange={e => setCommand(e.target.value)}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-          <Button type="submit" size="sm" disabled={!command.trim() || sending} className="shrink-0">
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
-          <span className="text-[10px] text-muted-foreground hidden sm:inline">⌘K</span>
-        </div>
-      </form>
+      {/* ── Recherche de projets ────────────────────────────────────── */}
+      <div className="flex items-center gap-2 px-3 py-2.5 border rounded-xl bg-background shadow-sm focus-within:ring-2 focus-within:ring-primary/30 transition-all">
+        <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Rechercher un projet Vercel ou Railway…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+        {search && (
+          <button type="button" onClick={() => setSearch('')} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            ✕
+          </button>
+        )}
+        {!loading && (
+          <span className="text-[11px] text-muted-foreground shrink-0">
+            {filteredVercel.length + filteredRailway.length} projet{filteredVercel.length + filteredRailway.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
 
       {/* ── Zone A — Vercel Projects ───────────────────────────────── */}
       <section>
@@ -210,16 +207,22 @@ export default function PanoptiqueePage() {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : vercelProjects.length === 0 ? (
+        ) : filteredVercel.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center py-8 text-center">
-              <p className="text-muted-foreground text-sm">Aucun projet Vercel</p>
-              <p className="text-xs text-muted-foreground mt-1">Configurez votre token Vercel dans <Link href="/admin/api" className="text-primary hover:underline">Admin → API Management</Link></p>
+              {q ? (
+                <p className="text-muted-foreground text-sm">Aucun projet Vercel correspondant à « {search} »</p>
+              ) : (
+                <>
+                  <p className="text-muted-foreground text-sm">Aucun projet Vercel</p>
+                  <p className="text-xs text-muted-foreground mt-1">Configurez votre token dans <Link href="/admin/api" className="text-primary hover:underline">Admin → API Management</Link></p>
+                </>
+              )}
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {vercelProjects.map(p => (
+            {filteredVercel.map(p => (
               <Card key={p.id} className="hover:border-primary/40 hover:shadow-sm transition-all group">
                 <CardHeader className="pb-2 pt-4 px-4">
                   <div className="flex items-start justify-between gap-2">
@@ -264,16 +267,22 @@ export default function PanoptiqueePage() {
           <div className="flex items-center justify-center py-6">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : railwayProjects.length === 0 ? (
+        ) : filteredRailway.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center py-6 text-center">
-              <p className="text-muted-foreground text-sm">Aucun projet Railway</p>
-              <p className="text-xs text-muted-foreground mt-1">Configurez votre clé Railway dans <Link href="/admin/api" className="text-primary hover:underline">Admin → API Management</Link></p>
+              {q ? (
+                <p className="text-muted-foreground text-sm">Aucun projet Railway correspondant à « {search} »</p>
+              ) : (
+                <>
+                  <p className="text-muted-foreground text-sm">Aucun projet Railway</p>
+                  <p className="text-xs text-muted-foreground mt-1">Configurez votre clé dans <Link href="/admin/api" className="text-primary hover:underline">Admin → API Management</Link></p>
+                </>
+              )}
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {railwayProjects.map(p => (
+            {filteredRailway.map(p => (
               <Card key={p.id} className="hover:border-primary/40 hover:shadow-sm transition-all group">
                 <CardHeader className="pb-2 pt-4 px-4">
                   <div className="flex items-start justify-between gap-2">
