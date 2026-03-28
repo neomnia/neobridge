@@ -37,6 +37,7 @@ const serviceCategories = [
       { id: "notion",   name: "Notion",         icon: "notion",   type: "neobridge", description: "Documentation & specs (API Key)" },
       { id: "github_token", name: "GitHub Token", icon: "github", type: "neobridge", description: "Accès repos & PRs (Personal Access Token)" },
       { id: "railway",  name: "Railway",        icon: "railway",  type: "neobridge", description: "Déploiement services backend" },
+      { id: "vercel",   name: "Vercel",          icon: "vercel",   type: "neobridge", description: "Déploiements Next.js — API token" },
       { id: "anthropic",name: "Anthropic",      icon: "anthropic",type: "neobridge", description: "API Claude — sessions agents" },
       { id: "mistral",  name: "Mistral",        icon: "mistral",  type: "neobridge", description: "API Mistral — PM orchestration" },
       { id: "openai",   name: "OpenAI",         icon: "openai",   type: "neobridge", description: "API ChatGPT / GPT-4 — agents IA" },
@@ -144,6 +145,16 @@ function ServiceIcon({ service, size = "sm" }: { service: (typeof services)[0]; 
       <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
         <rect width="32" height="32" rx="6" fill="#FF7000"/>
         <text x="16" y="22" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" fontFamily="Arial">M</text>
+      </svg>
+    )
+  }
+
+  // Vercel - Black triangle
+  if (service.id === "vercel") {
+    return (
+      <svg className={sizeClass} viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#000000"/>
+        <path d="M16 8L26 24H6L16 8Z" fill="white"/>
       </svg>
     )
   }
@@ -379,6 +390,8 @@ export default function AdminApiPage() {
   const [openaiConfig, setOpenaiConfig] = useState({ apiKey: "" })
   const [geminiConfig, setGeminiConfig] = useState({ apiKey: "" })
   const [perplexityConfig, setPerplexityConfig] = useState({ apiKey: "" })
+  const [vercelConfig, setVercelConfig] = useState({ apiToken: "" })
+  const [serviceSearch, setServiceSearch] = useState("")
   const [zohoAuthCode, setZohoAuthCode] = useState("")
   const [exchangingZoho, setExchangingZoho] = useState(false)
 
@@ -506,6 +519,9 @@ export default function AdminApiPage() {
             case "perplexity":
               setPerplexityConfig({ apiKey: data.data.config.apiKey || "" })
               break
+            case "vercel":
+              setVercelConfig({ apiToken: data.data.config.apiToken || "" })
+              break
           }
         }
       }
@@ -536,6 +552,8 @@ export default function AdminApiPage() {
     setOpenaiConfig({ apiKey: "" })
     setGeminiConfig({ apiKey: "" })
     setPerplexityConfig({ apiKey: "" })
+    setVercelConfig({ apiToken: "" })
+    setServiceSearch("")
     setShowKey(false)
     setShowSecretKey(false)
     setModalTestResult(null)
@@ -670,6 +688,10 @@ export default function AdminApiPage() {
         case "perplexity":
           if (!perplexityConfig.apiKey) throw new Error("La clé API Perplexity est requise")
           config = perplexityConfig
+          break
+        case "vercel":
+          if (!vercelConfig.apiToken) throw new Error("Le token API Vercel est requis")
+          config = vercelConfig
           break
       }
 
@@ -879,6 +901,10 @@ export default function AdminApiPage() {
         case "perplexity":
           if (!perplexityConfig.apiKey) throw new Error("La clé API Perplexity est requise")
           config = perplexityConfig
+          break
+        case "vercel":
+          if (!vercelConfig.apiToken) throw new Error("Le token API Vercel est requis")
+          config = vercelConfig
           break
       }
 
@@ -2107,6 +2133,28 @@ export default function AdminApiPage() {
           </div>
         )
 
+      case "vercel":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Token *</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="vercel_..."
+                  value={vercelConfig.apiToken}
+                  onChange={(e) => setVercelConfig({ apiToken: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">vercel.com → Account Settings → Tokens</p>
+            </div>
+          </div>
+        )
+
       default:
         return null
     }
@@ -2335,13 +2383,28 @@ export default function AdminApiPage() {
                 <SelectTrigger className="h-auto py-3 shadow-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[400px]">
-                  {serviceCategories.map((category) => (
+                <SelectContent className="max-h-[440px]">
+                  <div className="sticky top-0 z-10 bg-background px-2 pt-2 pb-1 border-b">
+                    <input
+                      type="text"
+                      placeholder="Rechercher un service..."
+                      value={serviceSearch}
+                      onChange={(e) => setServiceSearch(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      className="w-full text-sm px-3 py-1.5 rounded-md border bg-muted/40 outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  {serviceCategories.map((category) => {
+                    const filtered = category.services.filter(s =>
+                      !serviceSearch || s.name.toLowerCase().includes(serviceSearch.toLowerCase()) || s.description.toLowerCase().includes(serviceSearch.toLowerCase())
+                    )
+                    if (filtered.length === 0) return null
+                    return (
                     <SelectGroup key={category.id}>
-                      <SelectLabel className="flex items-center gap-2 py-2 px-2 text-sm font-semibold text-foreground bg-muted/50 sticky top-0">
+                      <SelectLabel className="flex items-center gap-2 py-2 px-2 text-sm font-semibold text-foreground bg-muted/50 sticky top-[41px]">
                         {category.label}
                       </SelectLabel>
-                      {category.services.map((service) => {
+                      {filtered.map((service) => {
                         const bgColor = service.type === 'payment'
                           ? 'bg-purple-100 text-purple-600'
                           : service.type === 'email'
@@ -2380,7 +2443,7 @@ export default function AdminApiPage() {
                         )
                       })}
                     </SelectGroup>
-                  ))}
+                  )})}
                 </SelectContent>
               </Select>
             </div>
