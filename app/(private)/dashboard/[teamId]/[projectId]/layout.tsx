@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { getZohoProject } from '@/lib/zoho-data'
-import { Server, Shield, Bot, BarChart3, Settings, ChevronRight } from 'lucide-react'
+import { Server, Shield, Bot, BarChart3, Settings, ChevronRight, DollarSign } from 'lucide-react'
 
 const STATUS_LABEL: Record<string, string> = {
   active:    'Actif',
@@ -21,6 +21,7 @@ const tabs = [
   { name: 'Gouvernance',    href: 'governance',     icon: Shield },
   { name: 'Orchestration', href: 'orchestration',  icon: Bot },
   { name: 'Zoho',          href: 'zoho',           icon: BarChart3 },
+  { name: 'Coûts',         href: 'costs',          icon: DollarSign },
   { name: 'Paramètres',    href: 'settings',       icon: Settings },
 ]
 
