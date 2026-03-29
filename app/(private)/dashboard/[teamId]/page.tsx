@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Plus, ExternalLink, Triangle, Database, GitBranch, Clock } from 'lucide-react'
-import { listZohoProjects } from '@/lib/zoho-data'
+import { Plus, ExternalLink, Triangle, Database, GitBranch } from 'lucide-react'
+import { serviceApiRepository } from '@/lib/services'
+import { syncVercelTeams, listVercelProjects } from '@/lib/connectors/vercel'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { db } from '@/db'
@@ -11,17 +12,55 @@ import { apiCredentials, teams } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { cn } from '@/lib/utils'
 
-export const metadata = { title: 'Vue d\'ensemble — NeoBridge' }
+export const metadata = { title: "Vue d'ensemble — NeoBridge" }
 
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
-  active:    'default',
-  completed: 'secondary',
-  archived:  'outline',
+// ---------------------------------------------------------------------------
+// Types & constants
+// ---------------------------------------------------------------------------
+
+const DEPLOY_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+  READY:    'default',
+  ERROR:    'destructive',
+  BUILDING: 'secondary',
+  QUEUED:   'outline',
+  CANCELED: 'outline',
 }
-const STATUS_LABEL: Record<string, string> = {
-  active:    'Actif',
-  completed: 'Terminé',
-  archived:  'Archivé',
+const DEPLOY_LABEL: Record<string, string> = {
+  READY:    'En ligne',
+  ERROR:    'Erreur',
+  BUILDING: 'Build…',
+  QUEUED:   'En attente',
+  CANCELED: 'Annulé',
+}
+
+const SERVICES = [
+  { id: 'vercel', label: 'Vercel',  icon: Triangle,   description: 'Déploiements & Edge Network', href: 'https://vercel.com/dashboard' },
+  { id: 'neon',   label: 'Neon',    icon: Database,   description: 'PostgreSQL serverless',        href: 'https://console.neon.tech'    },
+  { id: 'github', label: 'GitHub',  icon: GitBranch,  description: 'Dépôts & CI/CD',              href: 'https://github.com'           },
+]
+
+// ---------------------------------------------------------------------------
+// Data
+// ---------------------------------------------------------------------------
+
+async function fetchTeamProjects(teamSlug: string) {
+  try {
+    const config = await serviceApiRepository.getConfig('vercel', 'production')
+    const token = (config?.config as Record<string, unknown> | undefined)?.apiToken as string | undefined
+    if (!token) return null
+
+    const vercelTeams = await syncVercelTeams(token)
+    const team = vercelTeams.find((t) => t.slug === teamSlug)
+    if (!team) return null
+
+    const projects = await listVercelProjects(team.id, token)
+    return {
+      teamName: team.name,
+      projects: projects.sort((a, b) => b.updatedAt - a.updatedAt),
+    }
+  } catch {
+    return null
+  }
 }
 
 async function fetchConfiguredServices(teamSlug: string) {
@@ -31,35 +70,15 @@ async function fetchConfiguredServices(teamSlug: string) {
       .from(apiCredentials)
       .innerJoin(teams, eq(apiCredentials.teamId, teams.id))
       .where(eq(teams.slug, teamSlug))
-    return new Set(rows.map(r => r.type))
+    return new Set(rows.map((r) => r.type))
   } catch {
     return new Set<string>()
   }
 }
 
-const SERVICES = [
-  {
-    id: 'vercel',
-    label: 'Vercel',
-    icon: Triangle,
-    description: 'Déploiements & Edge Network',
-    docsHref: 'https://vercel.com/dashboard',
-  },
-  {
-    id: 'neon',
-    label: 'Neon',
-    icon: Database,
-    description: 'PostgreSQL serverless',
-    docsHref: 'https://console.neon.tech',
-  },
-  {
-    id: 'github',
-    label: 'GitHub',
-    icon: GitBranch,
-    description: 'Dépôts & CI/CD',
-    docsHref: 'https://github.com',
-  },
-]
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 export default async function TeamPage({
   params,
@@ -67,28 +86,24 @@ export default async function TeamPage({
   params: Promise<{ teamId: string }>
 }) {
   const { teamId } = await params
-  const [allProjects, configuredServices] = await Promise.all([
-    listZohoProjects(),
+  const [vercelData, configuredServices] = await Promise.all([
+    fetchTeamProjects(teamId),
     fetchConfiguredServices(teamId),
   ])
 
-  // Sort by last modified, keep only 5 most recent
-  const recentProjects = [...allProjects]
-    .sort((a, b) => {
-      const ta = a.last_modified_time ? new Date(a.last_modified_time).getTime() : 0
-      const tb = b.last_modified_time ? new Date(b.last_modified_time).getTime() : 0
-      return tb - ta
-    })
-    .slice(0, 5)
+  const projects = vercelData?.projects ?? []
+  const recentProjects = projects.slice(0, 5)
 
   return (
     <div className="space-y-8">
-      {/* ── Header ─────────────────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Vue d&apos;ensemble</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {allProjects.length} projet{allProjects.length !== 1 ? 's' : ''} · workspace <span className="font-mono">{teamId}</span>
+            {vercelData
+              ? `${projects.length} projet${projects.length !== 1 ? 's' : ''} · ${vercelData.teamName}`
+              : <span className="font-mono">{teamId}</span>}
           </p>
         </div>
         <Button asChild>
@@ -99,56 +114,52 @@ export default async function TeamPage({
         </Button>
       </div>
 
-      {/* ── Projets récents ──────────────────────────────────────── */}
+      {/* ── Projets récents ─────────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            Projets récents
-          </h2>
-          {allProjects.length > 5 && (
-            <Link href={`/dashboard/${teamId}/projects`}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              Voir tout ({allProjects.length}) →
+          <h2 className="text-base font-semibold">Projets récents</h2>
+          {projects.length > 5 && (
+            <Link href="/dashboard" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Voir tout ({projects.length}) →
             </Link>
           )}
         </div>
 
-        {recentProjects.length === 0 ? (
+        {projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center border border-dashed rounded-lg py-16 text-center">
-            <p className="text-muted-foreground font-medium">Aucun projet disponible</p>
-            <Button asChild className="mt-4">
-              <Link href={`/dashboard/${teamId}/new`}>
-                <Plus className="h-4 w-4 mr-2" />Créer un projet
-              </Link>
+            <p className="text-muted-foreground font-medium">Aucun projet sur Vercel</p>
+            <Button asChild className="mt-4" variant="outline">
+              <Link href="/admin/api">Configurer Vercel →</Link>
             </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {recentProjects.map((project) => (
-              <Link key={project.id} href={`/dashboard/${teamId}/${project.id}/infrastructure`}>
+              <Link key={project.id} href={`/dashboard/${teamId}/${project.name}/infrastructure`}>
                 <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-base truncate">{project.name}</h3>
-                        {project.description && (
-                          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{project.description}</p>
+                        {project.framework && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{project.framework}</p>
                         )}
                       </div>
-                      <Badge variant={STATUS_VARIANT[project.status] ?? 'secondary'} className="shrink-0">
-                        {STATUS_LABEL[project.status] ?? project.status}
-                      </Badge>
+                      {project.latestDeployments?.[0]?.readyState && (
+                        <Badge
+                          variant={DEPLOY_VARIANT[project.latestDeployments[0].readyState] ?? 'outline'}
+                          className="shrink-0 text-xs"
+                        >
+                          {DEPLOY_LABEL[project.latestDeployments[0].readyState] ?? project.latestDeployments[0].readyState}
+                        </Badge>
+                      )}
                     </div>
                   </CardHeader>
-                  {project.last_modified_time && (
-                    <CardContent>
-                      <p className="text-xs text-muted-foreground">
-                        Modifié{' '}
-                        {formatDistanceToNow(new Date(project.last_modified_time), { addSuffix: true, locale: fr })}
-                      </p>
-                    </CardContent>
-                  )}
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true, locale: fr })}
+                    </p>
+                  </CardContent>
                 </Card>
               </Link>
             ))}
@@ -156,20 +167,19 @@ export default async function TeamPage({
         )}
       </section>
 
-      {/* ── Services & Coûts ─────────────────────────────────────── */}
+      {/* ── Services connectés ──────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold">Services connectés</h2>
-          <Link href="/admin/api"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/admin/api" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
             Gérer les clés API →
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {SERVICES.map(({ id, label, icon: Icon, description, docsHref }) => {
+          {SERVICES.map(({ id, label, icon: Icon, description, href }) => {
             const isConnected = configuredServices.has(id)
             return (
-              <Card key={id} className={cn(!isConnected && "opacity-60")}>
+              <Card key={id} className={cn(!isConnected && 'opacity-60')}>
                 <CardContent className="pt-4 pb-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -182,7 +192,7 @@ export default async function TeamPage({
                       </div>
                     </div>
                     {isConnected ? (
-                      <a href={docsHref} target="_blank" rel="noreferrer"
+                      <a href={href} target="_blank" rel="noreferrer"
                         className="text-muted-foreground hover:text-foreground transition-colors mt-0.5">
                         <ExternalLink className="h-4 w-4" />
                       </a>
@@ -190,15 +200,10 @@ export default async function TeamPage({
                       <Badge variant="outline" className="text-xs shrink-0">Non configuré</Badge>
                     )}
                   </div>
-                  {isConnected && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-3 font-medium">● Connecté</p>
-                  )}
-                  {!isConnected && (
-                    <Link href="/admin/api"
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors mt-3 block underline underline-offset-2">
-                      Configurer →
-                    </Link>
-                  )}
+                  {isConnected
+                    ? <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-3 font-medium">● Connecté</p>
+                    : <Link href="/admin/api" className="text-xs text-muted-foreground hover:text-foreground transition-colors mt-3 block underline underline-offset-2">Configurer →</Link>
+                  }
                 </CardContent>
               </Card>
             )
@@ -208,4 +213,3 @@ export default async function TeamPage({
     </div>
   )
 }
-
