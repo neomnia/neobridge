@@ -410,7 +410,208 @@ Use these prefixes in release notes and status updates:
 - `Removed`
 - `Security`
 
+## Navigation — Structure du Sidebar
+
+Le sidebar s'adapte selon le contexte de navigation. Il y a **deux sidebars** distincts :
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  SIDEBAR PRINCIPAL  (PrivateSidebar)                             │
+│  Toutes les routes privées (/dashboard/* et /admin/*)            │
+│  Composant : components/layout/private-dashboard/sidebar.tsx     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Sidebar — Niveau utilisateur (toujours visible)
+
+```
+┌─────────────────────────────────┐
+│  [Logo]  NeoSaaS / NeoBridge    │
+├─────────────────────────────────┤
+│                                 │
+│  🏠  Projets        /dashboard  │
+│                                 │
+│  💳  Payments   /dashboard/...  │
+│                                 │
+│  👤  Profil         ▼ (ouvre)   │  ← Collapsible
+│    ↳ Mon profil  /dashboard/    │
+│      profile                    │
+│    ↳ Entreprise  /dashboard/    │  ← company-management
+│      company-management         │
+│                                 │
+│  ❓  Support    /dashboard/     │
+│      support                    │
+│                                 │
+├─────────────────────────────────┤  ← visible si projet actif
+│  📦  Projet actif   ▼ (ouvre)   │  (ex: /dashboard/team/proj/...)
+│    ↳ Infrastructure             │
+│    ↳ Gouvernance                │
+│    ↳ Orchestration              │
+│    ↳ Zoho                       │
+│    ↳ Coûts                      │
+│    ↳ Paramètres                 │
+├─────────────────────────────────┤  ← visible si isAdmin
+│  🛡  Admin          ▼ (ouvre)   │
+│    ↳ Business       /admin      │
+│    ↳ Support ▼                  │
+│       ↳ Chat                    │
+│       ↳ Tickets                 │
+│    ↳ Appointments               │
+│    ↳ Products                   │
+│    ↳ Organization               │  (super admin only)
+│    ↳ Parameters                 │
+│    ↳ API Management             │
+│    ↳ Mail Management            │
+│    ↳ Legal & Compliance         │
+├─────────────────────────────────┤
+│  [ Réduire ]                    │
+│  [ Retour au site ]             │
+│  [ Déconnexion ]                │
+└─────────────────────────────────┘
+```
+
+### Sidebar — Niveau NeoBridge projet (DynamicSidebar)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  DYNAMIC SIDEBAR  (composant autonome, non branché au layout)    │
+│  Composant : components/neobridge/layout/DynamicSidebar.tsx      │
+│  Usage futur : déploiement NeoBridge standalone                  │
+└──────────────────────────────────────────────────────────────────┘
+
+  Niveau GLOBAL   → /dashboard
+  ┌─────────────────────────────────┐
+  │  NeoB Bridge                    │
+  │  NeoBridge >                    │  ← breadcrumb
+  ├─────────────────────────────────┤
+  │  🔑  API Management  /admin/api │
+  │  👥  Teams        /admin/teams  │
+  └─────────────────────────────────┘
+
+  Niveau TEAM     → /dashboard/[teamId]
+  ┌─────────────────────────────────┐
+  │  NeoBridge > Neomnia            │  ← breadcrumb
+  ├─────────────────────────────────┤
+  │  🏠  Panoptique                 │
+  │  📁  Projets                    │
+  │  ⚙️  Paramètres                 │
+  └─────────────────────────────────┘
+
+  Niveau PROJET   → /dashboard/[teamId]/[projectId]
+  ┌─────────────────────────────────┐
+  │  NeoBridge > Neomnia > Proj     │  ← breadcrumb
+  ├─────────────────────────────────┤
+  │  🖥  Infrastructure             │
+  │  🛡  Gouvernance                │
+  │  🤖  Orchestration              │
+  │  📊  Zoho                       │
+  │  💰  Coûts                      │
+  │  ⚙️  Paramètres                 │
+  └─────────────────────────────────┘
+```
+
+### Routes NeoBridge — Architecture complète
+
+```
+app/(private)/
+│
+├── dashboard/                        # Root → redirect vers team si 1 seule team
+│   │
+│   ├── payments/                     # Historique paiements client
+│   ├── profile/                      # Profil utilisateur
+│   ├── company-management/           # Paramètres entreprise cliente (sous Profil)
+│   ├── support/                      # Help Center + FAQ + Live Chat
+│   ├── chat/                         # Chat client ↔ support
+│   ├── appointments/                 # Rendez-vous
+│   ├── payment-methods/              # Moyens de paiement
+│   │
+│   ├── [teamId]/                     # Workspace team (slug ex: "neomnia")
+│   │   ├── layout.tsx                # Passthrough pur
+│   │   ├── page.tsx                  # Liste des projets de la team
+│   │   │
+│   │   └── [projectId]/             # Projet (UUID Zoho ou DB)
+│   │       ├── layout.tsx            # Header projet (nom + badge statut)
+│   │       ├── page.tsx              # Redirect → /infrastructure
+│   │       ├── infrastructure/       # Ressources déployées (ResourceCard)
+│   │       ├── governance/           # Règles d'automatisation
+│   │       ├── orchestration/        # Temporal + Agent IA
+│   │       ├── zoho/                 # Intégration Zoho Projects
+│   │       ├── costs/                # Coûts (à créer)
+│   │       └── settings/             # Connecteurs externes
+│
+└── admin/                            # Admin dashboard (isAdmin requis)
+    ├── page.tsx                      # Business overview
+    ├── appointments/
+    ├── products/
+    ├── users/
+    ├── orders/
+    ├── coupons/
+    ├── invoices/
+    ├── mail/
+    ├── chat/
+    ├── support/
+    ├── api/                          # API Management
+    ├── api-management/
+    ├── settings/
+    ├── vat-rates/
+    ├── legal/
+    └── teams/
+```
+
+### Base de données — Tables NeoBridge
+
+```
+teams                    Workspaces clients (slug unique)
+  └── team_members       Membres + rôles (owner | writer | reader)
+  └── api_credentials    Tokens services externes par team
+  └── projects           Projets rattachés à la team
+       └── project_connectors  Connecteurs (Vercel, Zoho, GitHub...)
+       └── project_resources   Ressources déployées (remplace project_apps)
+                               Unique: (projectId, provider, name)
+                               Champs: provider, resourceType, url,
+                                       status, externalResourceId
+```
+
+### Connecteurs externes — lib/connectors/
+
+```
+lib/connectors/
+└── vercel.ts
+    ├── syncVercelTeams(adminToken)              → GET /v2/teams
+    ├── listVercelProjects(vercelTeamId, token)  → GET /v9/projects
+    ├── deleteVercelProject(projectId, ...)      → DELETE /v9/projects/[id]
+    └── listVercelDeployments(...)               → GET /v6/deployments
+```
+
+### API Routes NeoBridge
+
+```
+/api/projects/[id]/resources
+  GET    → liste project_resources du projet
+  POST   → upsert (onConflictDoUpdate sur projectId+provider+name)
+  DELETE → supprime + option deleteOnVercel (appelle Vercel API)
+
+/api/projects/[id]/apps      → legacy, pointe encore sur project_apps
+/api/projects/[id]/connectors
+/api/projects/[id]/
+/api/teams/[teamId]/
+/api/teams/[teamId]/members/
+/api/teams/[teamId]/credentials/
+```
+
+---
+
 ## Changelog
+
+### [2026-03-29]
+
+- **NeoBridge DynamicSidebar** : composant 3 niveaux (`components/neobridge/layout/DynamicSidebar.tsx`). Non branché au layout principal (réservé à un déploiement standalone futur).
+- **PrivateSidebar enrichi** : sous-menu Profil avec "Mon profil" et "Entreprise" (company-management). Ajout de "Coûts" dans les sous-items projet.
+- **Tabs supprimés** : navigation par onglets retirée de `[projectId]/layout.tsx`. Routes distinctes uniquement.
+- **project_resources** : migration Drizzle de `project_apps` → `project_resources` avec colonnes `provider`, `resourceType`, `url`, `status`. Contrainte unique `(projectId, provider, name)`.
+- **lib/connectors/vercel.ts** : connecteur Vercel (syncTeams, listProjects, deleteProject, listDeployments).
+- **ResourceCard** : modal de suppression avec case "Supprimer aussi sur Vercel" décochée par défaut.
+- **Files modified**: `docs/PROJECT.md`, `db/schema.ts`, `app/(private)/layout-client.tsx`, `components/layout/private-dashboard/sidebar.tsx`, `app/(private)/dashboard/[teamId]/[projectId]/layout.tsx`
 
 ### [2026-03-23]
 

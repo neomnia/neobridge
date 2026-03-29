@@ -21,13 +21,13 @@ import {
   ShoppingBag,
   CalendarDays,
   HelpCircle,
-  MessageSquare,
   Rocket,
   Headphones,
   Layers,
   Server,
   Bot,
   BarChart3,
+  DollarSign,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -66,13 +66,19 @@ const projectSubItems = [
   { name: "Gouvernance",    href: "governance",     icon: Shield },
   { name: "Orchestration", href: "orchestration",  icon: Bot },
   { name: "Zoho",          href: "zoho",           icon: BarChart3 },
+  { name: "Coûts",         href: "costs",          icon: DollarSign },
   { name: "Paramètres",    href: "settings",       icon: Settings },
+]
+
+// Sub-items displayed under the "Profil" collapsible
+const profileSubItems = [
+  { name: "Mon profil",  href: "/dashboard/profile",            icon: User },
+  { name: "Entreprise",  href: "/dashboard/company-management", icon: Building2 },
 ]
 
 const navItems = [
   { name: "Projets", href: "/dashboard", icon: Home },
   { name: "Payments", href: "/dashboard/payments", icon: CreditCard },
-  { name: "Profile", href: "/dashboard/profile", icon: User },
   { name: "Support", href: "/dashboard/support", icon: HelpCircle },
 ]
 
@@ -104,6 +110,9 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
   const { siteName, logo, logoDisplayMode } = usePlatformConfig()
   const activeProject = getActiveProject(pathname)
   const [isProjectOpen, setIsProjectOpen] = useState(!!activeProject)
+  const [isProfileOpen, setIsProfileOpen] = useState(
+    pathname.startsWith("/dashboard/profile") || pathname.startsWith("/dashboard/company-management"),
+  )
   const [isAdminOpen, setIsAdminOpen] = useState(
     pathname.startsWith("/admin") || pathname.startsWith("/dashboard/admin"),
   )
@@ -177,8 +186,8 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
           {navItems.map((item) => {
             const Icon = item.icon
             const isRoot = item.href === "/dashboard"
-            const isActive = isRoot 
-              ? pathname === item.href 
+            const isActive = isRoot
+              ? pathname === item.href
               : (pathname === item.href || pathname.startsWith(`${item.href}/`))
 
             const linkContent = (
@@ -207,6 +216,66 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
             }
             return linkContent
           })}
+
+          {/* ── Profil & Entreprise — collapsible ───────────────────────── */}
+          {isCollapsed ? (
+            <>
+              {profileSubItems.map(({ name, href, icon: Icon }) => {
+                const isActive = pathname === href || pathname.startsWith(`${href}/`)
+                return (
+                  <Tooltip key={href}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={href}
+                        onClick={handleLinkClick}
+                        className={cn(
+                          "flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          isActive ? "bg-brand text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        )}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">{name}</TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </>
+          ) : (
+            <Collapsible open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+              <CollapsibleTrigger className={cn(
+                "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                (pathname.startsWith("/dashboard/profile") || pathname.startsWith("/dashboard/company-management"))
+                  ? "bg-brand/10 text-brand"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}>
+                <div className="flex items-center gap-3">
+                  <User className="h-5 w-5" />
+                  <span>Profil</span>
+                </div>
+                <ChevronDown className={cn("h-4 w-4 transition-transform shrink-0", isProfileOpen && "rotate-180")} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-1 space-y-1 pl-6">
+                {profileSubItems.map(({ name, href, icon: Icon }) => {
+                  const isActive = pathname === href || pathname.startsWith(`${href}/`)
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={handleLinkClick}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        isActive ? "bg-brand text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {name}
+                    </Link>
+                  )
+                })}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
 
           {/* ── Projet actif — sous-menu contextuel ─────────────────────── */}
           {activeProject && !isCollapsed && (
