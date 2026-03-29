@@ -23,12 +23,14 @@ import {
   HelpCircle,
   Rocket,
   Headphones,
-  Layers,
   Server,
   Bot,
   BarChart3,
   DollarSign,
   ChevronLeft,
+  Terminal,
+  Globe,
+  MessageCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -62,12 +64,15 @@ function getTeamId(pathname: string): string | null {
 }
 
 const projectSubItems = [
-  { name: "Infrastructure", href: "infrastructure", icon: Server },
-  { name: "Gouvernance",    href: "governance",     icon: Shield },
-  { name: "Orchestration", href: "orchestration",  icon: Bot },
-  { name: "Zoho",          href: "zoho",           icon: BarChart3 },
-  { name: "Coûts",         href: "costs",          icon: DollarSign },
-  { name: "Paramètres",    href: "settings",       icon: Settings },
+  { name: "Infrastructure", href: "infrastructure", icon: Server        },
+  { name: "Déploiements",   href: "deployments",   icon: Rocket        },
+  { name: "Logs",           href: "logs",           icon: Terminal      },
+  { name: "Domaines",       href: "domains",        icon: Globe         },
+  { name: "Chat",           href: "chat",           icon: MessageCircle },
+  { name: "Gouvernance",    href: "governance",     icon: Shield        },
+  { name: "Orchestration",  href: "orchestration",  icon: Bot           },
+  { name: "Zoho",           href: "zoho",           icon: BarChart3     },
+  { name: "Coûts",          href: "costs",          icon: DollarSign    },
 ]
 
 const profileSubItems = [

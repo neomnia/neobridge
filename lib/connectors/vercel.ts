@@ -118,6 +118,53 @@ export async function deleteVercelProject(
   )
 }
 
+export interface VercelDomain {
+  name: string
+  apexName: string
+  projectId: string
+  verified: boolean
+  createdAt: number
+  updatedAt: number
+  gitBranch: string | null
+}
+
+/**
+ * Resolve a Vercel team slug + project name → { teamId, projectId, token }.
+ * Returns null when the token is not configured or the project is not found.
+ */
+export async function resolveVercelProject(
+  teamSlug: string,
+  projectName: string,
+  token: string,
+): Promise<{ vercelTeamId: string; vercelProjectId: string } | null> {
+  const teams = await syncVercelTeams(token)
+  const team = teams.find((t) => t.slug === teamSlug)
+  if (!team) return null
+
+  const projects = await listVercelProjects(team.id, token)
+  const project = projects.find((p) => p.name === projectName)
+  if (!project) return null
+
+  return { vercelTeamId: team.id, vercelProjectId: project.id }
+}
+
+/**
+ * List domains attached to a Vercel project.
+ * GET /v9/projects/[projectId]/domains
+ */
+export async function listProjectDomains(
+  vercelProjectId: string,
+  vercelTeamId: string,
+  token: string,
+): Promise<VercelDomain[]> {
+  const res = await vercelFetch(
+    `/v9/projects/${encodeURIComponent(vercelProjectId)}/domains?teamId=${encodeURIComponent(vercelTeamId)}`,
+    token,
+  )
+  const data = await res.json()
+  return (data.domains ?? []) as VercelDomain[]
+}
+
 /**
  * List recent deployments for a project.
  * GET /v6/deployments?projectId=[projectId]&teamId=[vercelTeamId]
