@@ -1718,7 +1718,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   company: one(companies, { fields: [projects.companyId], references: [companies.id] }),
   team: one(teams, { fields: [projects.teamId], references: [teams.id] }),
   connectors: many(projectConnectors),
-  apps: many(projectApps),
+  resources: many(projectResources),
 }))
 
 export const projectConnectorsRelations = relations(projectConnectors, ({ one }) => ({
@@ -1731,21 +1731,31 @@ export type ProjectConnector = typeof projectConnectors.$inferSelect
 export type NewProjectConnector = typeof projectConnectors.$inferInsert
 
 /**
- * Project Apps — Deployment units attached to a project
+ * Project Resources — Deployment units and services attached to a project.
+ * Replaces project_apps. provider replaces platform, resourceType replaces type.
+ * Unique constraint on (project_id, provider, name) for upsert idempotency.
  */
-export const projectApps = pgTable('project_apps', {
-  id:                 uuid('id').primaryKey().defaultRandom(),
-  projectId:          uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  platform:           text('platform').notNull(),              // vercel | railway | scaleway | none
-  externalResourceId: text('external_resource_id').notNull(),
-  name:               text('name').notNull(),
-  type:               text('type').notNull(),                  // frontend | backend | worker | script
-  branch:             text('branch'),
-  credentialSource:   text('credential_source').notNull().default('admin'), // admin | team
-  config:             jsonb('config'),
-  createdAt:          timestamp('created_at').defaultNow().notNull(),
-  updatedAt:          timestamp('updated_at').defaultNow().notNull(),
-})
+export const projectResources = pgTable(
+  'project_resources',
+  {
+    id:                 uuid('id').primaryKey().defaultRandom(),
+    projectId:          uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    provider:           text('provider').notNull(),                    // vercel | railway | scaleway | neon | none
+    externalResourceId: text('external_resource_id'),                  // Vercel prj_xxx, Railway service id, etc.
+    name:               text('name').notNull(),
+    resourceType:       text('resource_type').notNull(),               // frontend | backend | worker | script | database
+    url:                text('url'),                                    // deployment / service URL
+    branch:             text('branch'),
+    credentialSource:   text('credential_source').notNull().default('admin'), // admin | team
+    config:             jsonb('config').default({}),
+    status:             text('status').notNull().default('active'),    // active | inactive | error | deploying
+    createdAt:          timestamp('created_at').defaultNow().notNull(),
+    updatedAt:          timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqProviderName: unique().on(t.projectId, t.provider, t.name),
+  }),
+)
 
 // Relations
 export const teamsRelations = relations(teams, ({ many }) => ({
@@ -1763,8 +1773,13 @@ export const apiCredentialsRelations = relations(apiCredentials, ({ one }) => ({
   team: one(teams, { fields: [apiCredentials.teamId], references: [teams.id] }),
 }))
 
-export const projectAppsRelations = relations(projectApps, ({ one }) => ({
-  project: one(projects, { fields: [projectApps.projectId], references: [projects.id] }),
+export const projectResourcesRelations = relations(projectResources, ({ one }) => ({
+  project: one(projects, { fields: [projectResources.projectId], references: [projects.id] }),
+}))
+
+// Update projects relations to reference projectResources
+export const projectsResourcesRef = relations(projects, ({ many }) => ({
+  resources: many(projectResources),
 }))
 
 // Types
@@ -1780,5 +1795,5 @@ export type NewTeamMember = typeof teamMembers.$inferInsert
 export type ApiCredential = typeof apiCredentials.$inferSelect
 export type NewApiCredential = typeof apiCredentials.$inferInsert
 
-export type ProjectApp = typeof projectApps.$inferSelect
-export type NewProjectApp = typeof projectApps.$inferInsert
+export type ProjectResource = typeof projectResources.$inferSelect
+export type NewProjectResource = typeof projectResources.$inferInsert
