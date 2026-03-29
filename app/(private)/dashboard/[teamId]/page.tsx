@@ -203,27 +203,235 @@ export default function PanoptiquePage() {
         </section>
       )}
 
-      {/* ── 2. État des services ──────────────────────────────────────── */}
+      {/* ── 2. Cockpit d'infrastructure ───────────────────────────────── */}
       <section>
-        <h2 className="flex items-center gap-2 text-sm font-semibold mb-3">
-          <Activity className="h-4 w-4 text-muted-foreground" />État des services
-          {loadingSpending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {([
-            { key: 'vercel'   , label: 'Vercel',    icon: <svg className="h-3 w-3" viewBox="0 0 32 32" fill="currentColor"><path d="M16 4L28 24H4L16 4Z"/></svg> },
-            { key: 'railway'  , label: 'Railway',   icon: <Server    className="h-3 w-3" /> },
-            { key: 'neon'     , label: 'Neon DB',   icon: <Database  className="h-3 w-3" /> },
-            { key: 'anthropic', label: 'Anthropic', icon: <TrendingUp className="h-3 w-3" /> },
-            { key: 'openai'   , label: 'OpenAI',    icon: <Cpu       className="h-3 w-3" /> },
-          ] as const).map(s => (
-            <div key={s.key} className="flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs bg-background">
-              {s.icon}{s.label}<StatusDot ok={apiHealth[s.key]} />
-            </div>
-          ))}
-          <Link href="/admin/api" className="flex items-center gap-1.5 px-3 py-1.5 border border-dashed rounded-lg text-xs text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <Activity className="h-4 w-4 text-muted-foreground" />Cockpit d'infrastructure
+            {(loadingSpending || loadingProjects) && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          </h2>
+          <Link href="/admin/api" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
             Gérer les clés <ChevronRight className="h-3 w-3" />
           </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+
+          {/* Vercel */}
+          {(() => {
+            const ok = apiHealth.vercel
+            const lastDep = deployments.find(d => d.source === 'vercel')
+            const vpCount = vercelProjects.length
+            return (
+              <Card className={`px-4 py-3 border-l-4 ${ok ? 'border-l-green-500' : ok === false ? 'border-l-red-400' : 'border-l-muted'}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <svg className="h-4 w-4" viewBox="0 0 32 32" fill="currentColor"><path d="M16 4L28 24H4L16 4Z"/></svg>
+                    <span className="text-sm font-semibold">Vercel</span>
+                  </div>
+                  <StatusDot ok={ok} />
+                </div>
+                {ok ? (
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1.5">
+                      <Rocket className="h-3 w-3" />
+                      <span className="text-foreground font-medium">{vpCount} projet{vpCount > 1 ? 's' : ''}</span>
+                      {vercelProjects.filter(p => p.status === 'READY').length > 0 && (
+                        <span className="text-green-600">· {vercelProjects.filter(p => p.status === 'READY').length} ready</span>
+                      )}
+                    </p>
+                    {lastDep && (
+                      <p className="flex items-center gap-1.5 truncate">
+                        <GitCommit className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{lastDep.name}</span>
+                        <StateChip state={lastDep.state} />
+                      </p>
+                    )}
+                    {lastDep?.commitSha && (
+                      <p className="flex items-center gap-1.5 font-mono text-[10px]">
+                        <GitBranch className="h-3 w-3 shrink-0" />
+                        {lastDep.branch && <span>{lastDep.branch}</span>}
+                        <span className="opacity-60">#{lastDep.commitSha}</span>
+                      </p>
+                    )}
+                    {spending?.vercel?.current != null && (
+                      <p className="flex items-center gap-1.5">
+                        <DollarSign className="h-3 w-3" />
+                        <span className="text-foreground font-medium">${spending.vercel.current.toFixed(2)}</span>
+                        <span>{spending.vercel.period}</span>
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">Non configuré — <Link href="/admin/api" className="text-primary hover:underline">Ajouter le token</Link></p>
+                )}
+              </Card>
+            )
+          })()}
+
+          {/* Railway */}
+          {(() => {
+            const ok = apiHealth.railway
+            const lastDep = deployments.find(d => d.source === 'railway')
+            const totalServices = railwayProjects.reduce((acc, p) => acc + p.services.length, 0)
+            const allEnvs = [...new Set(railwayProjects.flatMap(p => p.environments))]
+            return (
+              <Card className={`px-4 py-3 border-l-4 ${ok ? 'border-l-green-500' : ok === false ? 'border-l-red-400' : 'border-l-muted'}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Server className="h-4 w-4" />
+                    <span className="text-sm font-semibold">Railway</span>
+                  </div>
+                  <StatusDot ok={ok} />
+                </div>
+                {ok ? (
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1.5">
+                      <Rocket className="h-3 w-3" />
+                      <span className="text-foreground font-medium">{railwayProjects.length} projet{railwayProjects.length > 1 ? 's' : ''}</span>
+                      {totalServices > 0 && <span>· {totalServices} service{totalServices > 1 ? 's' : ''}</span>}
+                    </p>
+                    {allEnvs.length > 0 && (
+                      <div className="flex gap-1 flex-wrap">
+                        {allEnvs.slice(0, 4).map(e => <Badge key={e} variant="secondary" className="text-[10px] font-normal">{e}</Badge>)}
+                      </div>
+                    )}
+                    {lastDep && (
+                      <p className="flex items-center gap-1.5 truncate">
+                        <GitCommit className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{lastDep.name}</span>
+                        {lastDep.service && <span className="opacity-60">/{lastDep.service}</span>}
+                        <StateChip state={lastDep.state} />
+                      </p>
+                    )}
+                    {spending?.railway?.current != null && (
+                      <p className="flex items-center gap-1.5">
+                        <DollarSign className="h-3 w-3" />
+                        <span className="text-foreground font-medium">${spending.railway.current.toFixed(2)}</span>
+                        <span>{spending.railway.period}</span>
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">Non configuré — <Link href="/admin/api" className="text-primary hover:underline">Ajouter le token</Link></p>
+                )}
+              </Card>
+            )
+          })()}
+
+          {/* Neon */}
+          {(() => {
+            const ok = apiHealth.neon
+            const computeH = spending?.neon?.computeHours
+            return (
+              <Card className={`px-4 py-3 border-l-4 ${ok ? 'border-l-green-500' : ok === false ? 'border-l-red-400' : 'border-l-muted'}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Database className="h-4 w-4" />
+                    <span className="text-sm font-semibold">Neon DB</span>
+                  </div>
+                  <StatusDot ok={ok} />
+                </div>
+                {ok ? (
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1.5">
+                      <Cpu className="h-3 w-3" />
+                      <span className="text-foreground font-medium">{computeH != null ? `${computeH.toFixed(2)}h compute` : '—'}</span>
+                      {spending?.neon?.period && <span>{spending.neon.period}</span>}
+                    </p>
+                    {spending?.neon?.daily?.length ? (
+                      <ResponsiveContainer width="100%" height={40}>
+                        <AreaChart data={spending.neon.daily.slice(-7)} margin={{ top:2, right:0, left:0, bottom:0 }}>
+                          <defs><linearGradient id="gNeonC" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient></defs>
+                          <Tooltip contentStyle={{ fontSize:10 }} formatter={(v:number) => [`${v.toFixed(2)}h`,'Compute']} />
+                          <Area type="monotone" dataKey="computeHours" stroke="#10b981" fill="url(#gNeonC)" strokeWidth={1.5} dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">Non configuré — <Link href="/admin/api" className="text-primary hover:underline">Ajouter le token</Link></p>
+                )}
+              </Card>
+            )
+          })()}
+
+          {/* Anthropic */}
+          {(() => {
+            const ok = apiHealth.anthropic
+            const a = spending?.anthropic
+            return (
+              <Card className={`px-4 py-3 border-l-4 ${ok ? 'border-l-purple-500' : ok === false ? 'border-l-red-400' : 'border-l-muted'}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="text-sm font-semibold">Anthropic</span>
+                  </div>
+                  <StatusDot ok={ok} />
+                </div>
+                {ok && a ? (
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1.5">
+                      <DollarSign className="h-3 w-3" />
+                      <span className="text-foreground font-medium">{a.current != null ? `$${a.current.toFixed(2)}` : '—'}</span>
+                      <span>{a.period}</span>
+                    </p>
+                    <p className="flex items-center gap-3">
+                      <span>↑ {(a.inputTokens / 1000).toFixed(1)}k in</span>
+                      <span>↓ {(a.outputTokens / 1000).toFixed(1)}k out</span>
+                    </p>
+                    {a.daily?.length ? (
+                      <ResponsiveContainer width="100%" height={40}>
+                        <AreaChart data={a.daily.slice(-7)} margin={{ top:2, right:0, left:0, bottom:0 }}>
+                          <defs><linearGradient id="gAnthC" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient></defs>
+                          <Tooltip contentStyle={{ fontSize:10 }} formatter={(v:number) => [v.toLocaleString(),'tokens']} />
+                          <Area type="monotone" dataKey="outputTokens" stroke="#8b5cf6" fill="url(#gAnthC)" strokeWidth={1.5} dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : null}
+                  </div>
+                ) : ok === false ? (
+                  <p className="text-xs text-muted-foreground mt-1">Non configuré — <Link href="/admin/api" className="text-primary hover:underline">Ajouter la clé</Link></p>
+                ) : <p className="text-xs text-muted-foreground mt-1">Chargement…</p>}
+              </Card>
+            )
+          })()}
+
+          {/* OpenAI */}
+          {(() => {
+            const ok = apiHealth.openai
+            const o = spending?.openai
+            return (
+              <Card className={`px-4 py-3 border-l-4 ${ok ? 'border-l-green-500' : ok === false ? 'border-l-red-400' : 'border-l-muted'}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="h-4 w-4" />
+                    <span className="text-sm font-semibold">OpenAI</span>
+                  </div>
+                  <StatusDot ok={ok} />
+                </div>
+                {ok && o ? (
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1.5">
+                      <TrendingUp className="h-3 w-3" />
+                      <span className="text-foreground font-medium">{(o.tokens / 1000).toFixed(1)}k tokens</span>
+                      <span>{o.period}</span>
+                    </p>
+                    {o.daily?.length ? (
+                      <ResponsiveContainer width="100%" height={40}>
+                        <BarChart data={o.daily.slice(-7)} margin={{ top:2, right:0, left:0, bottom:0 }}>
+                          <Tooltip contentStyle={{ fontSize:10 }} formatter={(v:number) => [v.toLocaleString(),'tokens']} />
+                          <Bar dataKey="tokens" fill="#10b981" radius={[2,2,0,0]} maxBarSize={10} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : null}
+                  </div>
+                ) : ok === false ? (
+                  <p className="text-xs text-muted-foreground mt-1">Non configuré — <Link href="/admin/api" className="text-primary hover:underline">Ajouter la clé</Link></p>
+                ) : <p className="text-xs text-muted-foreground mt-1">Chargement…</p>}
+              </Card>
+            )
+          })()}
+
         </div>
       </section>
 
