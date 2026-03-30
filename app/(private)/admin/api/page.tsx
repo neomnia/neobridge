@@ -686,6 +686,51 @@ export default function AdminApiPage() {
     }
   }
 
+  const handleSaveAndConnectZoho = async () => {
+    if (!zohoConfig.clientId || !zohoConfig.clientSecret) {
+      toast({ title: "❌ Client ID et Client Secret requis", variant: "destructive" })
+      return
+    }
+    setSaving(true)
+    try {
+      // 1. Save credentials to DB
+      const currentService = services.find(s => s.id === 'zoho')
+      await fetch('/api/services/zoho', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceType: currentService?.type,
+          environment,
+          isActive: true,
+          isDefault: true,
+          config: zohoConfig,
+          metadata: {},
+        }),
+      })
+      // 2. Launch OAuth flow
+      const res = await fetch('/api/auth/oauth/zoho', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: zohoConfig.clientId,
+          clientSecret: zohoConfig.clientSecret,
+          portalId: zohoConfig.portalId,
+          domain: 'com',
+        }),
+      })
+      const data = await res.json()
+      if (data.authUrl) {
+        window.location.href = data.authUrl
+      } else {
+        toast({ title: "❌ Erreur OAuth", description: data.error, variant: "destructive" })
+        setSaving(false)
+      }
+    } catch {
+      toast({ title: "❌ Erreur réseau", variant: "destructive" })
+      setSaving(false)
+    }
+  }
+
   const handleSave = async () => {
     setSaving(true)
 
@@ -1820,68 +1865,16 @@ export default function AdminApiPage() {
               </p>
             </div>
 
-            {zohoConfig.refreshToken ? (
-              <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-green-700 dark:text-green-400">Zoho connecté</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Refresh Token sauvegardé. Reconnecte pour le renouveler.</p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 border-green-300"
-                  disabled={connectingZoho || !zohoConfig.clientId || !zohoConfig.clientSecret}
-                  onClick={async () => {
-                    setConnectingZoho(true)
-                    try {
-                      const res = await fetch('/api/auth/oauth/zoho', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ clientId: zohoConfig.clientId, clientSecret: zohoConfig.clientSecret, portalId: zohoConfig.portalId, domain: 'com' }),
-                      })
-                      const data = await res.json()
-                      if (data.authUrl) window.location.href = data.authUrl
-                      else toast({ title: "❌ Erreur", description: data.error, variant: "destructive" })
-                    } catch { toast({ title: "❌ Erreur réseau", variant: "destructive" }) }
-                    finally { setConnectingZoho(false) }
-                  }}
-                >
-                  {connectingZoho ? <Loader2 className="h-3 w-3 animate-spin" /> : "Reconnecter"}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  Pré-requis : ajouter dans Zoho API Console → ton app → <strong>Authorized Redirect URIs</strong> :<br />
-                  <code className="text-[11px] bg-muted rounded px-1">https://neobridge.vercel.app/api/auth/oauth/zoho/callback</code>
-                </p>
-                <Button
-                  type="button"
-                  className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white"
-                  disabled={connectingZoho || !zohoConfig.clientId || !zohoConfig.clientSecret}
-                  onClick={async () => {
-                    setConnectingZoho(true)
-                    try {
-                      const res = await fetch('/api/auth/oauth/zoho', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ clientId: zohoConfig.clientId, clientSecret: zohoConfig.clientSecret, portalId: zohoConfig.portalId, domain: 'com' }),
-                      })
-                      const data = await res.json()
-                      if (data.authUrl) window.location.href = data.authUrl
-                      else toast({ title: "❌ Erreur", description: data.error, variant: "destructive" })
-                    } catch { toast({ title: "❌ Erreur réseau", variant: "destructive" }) }
-                    finally { setConnectingZoho(false) }
-                  }}
-                >
-                  {connectingZoho
-                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Redirection…</>
-                    : <><Key className="h-4 w-4" /> Connecter avec Zoho</>
-                  }
-                </Button>
+            {zohoConfig.refreshToken && (
+              <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 px-3 py-2">
+                <span className="text-green-600 text-sm">✓</span>
+                <p className="text-xs text-green-700 dark:text-green-400">Refresh Token actif — le bouton ci-dessous le renouvellera.</p>
               </div>
             )}
+            <p className="text-xs text-muted-foreground">
+              Pré-requis Zoho API Console → <strong>Authorized Redirect URIs</strong> :<br />
+              <code className="text-[11px] bg-muted rounded px-1">https://neobridge.vercel.app/api/auth/oauth/zoho/callback</code>
+            </p>
           </div>
         )
 
@@ -2337,43 +2330,47 @@ export default function AdminApiPage() {
               disabled={saving || testingInModal}
               className="w-full sm:w-auto"
             >
-              Cancel
+              Annuler
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleTestInModal}
-              disabled={saving || testingInModal}
-              className="w-full sm:w-auto"
-            >
-              {testingInModal ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Verify Key
-                </>
-              )}
-            </Button>
-            <Button
-              className="bg-brand hover:bg-[#B8691C] w-full sm:w-auto"
-              onClick={handleSave}
-              disabled={saving || testingInModal}
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  {editingConfig ? "Update" : "Save"} Configuration
-                </>
-              )}
-            </Button>
+            {selectedService === 'zoho' ? (
+              <Button
+                className="bg-violet-600 hover:bg-violet-700 text-white w-full sm:w-auto gap-2"
+                onClick={handleSaveAndConnectZoho}
+                disabled={saving || !zohoConfig.clientId || !zohoConfig.clientSecret}
+              >
+                {saving ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Enregistrement…</>
+                ) : (
+                  <><Key className="h-4 w-4" /> Enregistrer et connecter</>
+                )}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleTestInModal}
+                  disabled={saving || testingInModal}
+                  className="w-full sm:w-auto"
+                >
+                  {testingInModal ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Verifying...</>
+                  ) : (
+                    <><RefreshCw className="h-4 w-4 mr-2" />Verify Key</>
+                  )}
+                </Button>
+                <Button
+                  className="bg-brand hover:bg-[#B8691C] w-full sm:w-auto"
+                  onClick={handleSave}
+                  disabled={saving || testingInModal}
+                >
+                  {saving ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                  ) : (
+                    <><Save className="h-4 w-4 mr-2" />{editingConfig ? "Update" : "Save"} Configuration</>
+                  )}
+                </Button>
+              </>
+            )}
           </SheetFooter>
         </SheetContent>
       </Sheet>
