@@ -34,10 +34,7 @@ export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
   get(_, prop) {
     if (!_db) {
       const connectionString = getConnectionString();
-      _sql = neon(connectionString, {
-        // Fail fast on cold start instead of hanging until Vercel kills the function
-        fetchOptions: { signal: AbortSignal.timeout(20_000) },
-      });
+      _sql = neon(connectionString);
       _db = drizzle(_sql, { schema });
     }
     return (_db as Record<string | symbol, unknown>)[prop];
