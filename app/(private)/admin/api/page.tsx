@@ -1756,7 +1756,6 @@ export default function AdminApiPage() {
       case "zoho":
         return (
           <div className="space-y-4">
-            {/* ── Step 1 : credentials ── */}
             <div className="space-y-2">
               <Label>Client ID *</Label>
               <Input
@@ -1765,10 +1764,6 @@ export default function AdminApiPage() {
                 value={zohoConfig.clientId}
                 onChange={(e) => setZohoConfig({ ...zohoConfig, clientId: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">
-                <a href="https://api-console.zoho.com/" target="_blank" rel="noopener noreferrer" className="underline text-violet-600">api-console.zoho.com</a>
-                {' '}→ ton app Server-based → onglet Client Secret
-              </p>
             </div>
             <div className="space-y-2">
               <Label>Client Secret *</Label>
@@ -1784,6 +1779,10 @@ export default function AdminApiPage() {
                   {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                <a href="https://api-console.zoho.com/" target="_blank" rel="noopener noreferrer" className="underline text-violet-600">api-console.zoho.com</a>
+                {' '}→ ton app Server-based → onglet Client Secret
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Portal ID</Label>
@@ -1794,115 +1793,72 @@ export default function AdminApiPage() {
                 onChange={(e) => setZohoConfig({ ...zohoConfig, portalId: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Slug visible dans l'URL :{' '}
-                <code className="bg-muted px-1 rounded text-[10px]">
-                  projects.zoho.com/portal/<strong>{zohoConfig.portalId || 'votre-portail'}</strong>
-                </code>
+                Slug dans l'URL : projects.zoho.com/portal/<strong>{zohoConfig.portalId || '…'}</strong>
               </p>
             </div>
 
-            {/* ── Step 2 : OAuth connect ── */}
-            <div className="rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:border-violet-800 p-4 space-y-3">
-              <p className="text-sm font-medium">Étape 2 — Autoriser l'accès via OAuth2</p>
-              <p className="text-xs text-muted-foreground">
-                Clique le bouton ci-dessous. Tu seras redirigé vers Zoho pour autoriser NeoBridge.
-                Le Refresh Token sera sauvegardé <strong>automatiquement</strong> — pas besoin de le copier.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                ⚠️ Pré-requis : dans{' '}
-                <a href="https://api-console.zoho.com/" target="_blank" rel="noopener noreferrer" className="underline text-violet-600">api-console.zoho.com</a>
-                {' '}→ ton app → <strong>Authorized Redirect URIs</strong>, ajoute :
-              </p>
-              <code className="block text-[11px] bg-muted rounded px-2 py-1 break-all">
-                https://neobridge.vercel.app/api/auth/oauth/zoho/callback
-              </code>
-              <Button
-                type="button"
-                className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white"
-                disabled={connectingZoho || !zohoConfig.clientId || !zohoConfig.clientSecret}
-                onClick={async () => {
-                  setConnectingZoho(true)
-                  try {
-                    const res = await fetch('/api/auth/oauth/zoho', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        clientId:     zohoConfig.clientId,
-                        clientSecret: zohoConfig.clientSecret,
-                        portalId:     zohoConfig.portalId,
-                        domain:       'com',
-                      }),
-                    })
-                    const data = await res.json()
-                    if (data.authUrl) {
-                      window.location.href = data.authUrl
-                    } else {
-                      toast({ title: "❌ Erreur", description: data.error ?? "Impossible de générer l'URL OAuth", variant: "destructive" })
-                    }
-                  } catch {
-                    toast({ title: "❌ Erreur réseau", variant: "destructive" })
-                  } finally {
-                    setConnectingZoho(false)
-                  }
-                }}
-              >
-                {connectingZoho
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Redirection…</>
-                  : <><Key className="h-4 w-4" /> Connecter avec Zoho</>
-                }
-              </Button>
-            </div>
-
-            {/* Refresh Token — read-only, auto-filled after OAuth */}
-            {zohoConfig.refreshToken && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  Refresh Token
-                  <span className="text-[10px] font-normal text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded">✓ connecté</span>
-                </Label>
-                <div className="relative">
-                  <Input
-                    type={showKey ? "text" : "password"}
-                    value={zohoConfig.refreshToken}
-                    readOnly
-                    className="pr-10 bg-muted/50"
-                  />
-                  <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
-                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+            {zohoConfig.refreshToken ? (
+              <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-green-700 dark:text-green-400">Zoho connecté</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Refresh Token sauvegardé. Reconnecte pour le renouveler.</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Sauvegardé automatiquement via OAuth2. Reconnecte pour le renouveler.</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-green-300"
+                  disabled={connectingZoho || !zohoConfig.clientId || !zohoConfig.clientSecret}
+                  onClick={async () => {
+                    setConnectingZoho(true)
+                    try {
+                      const res = await fetch('/api/auth/oauth/zoho', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clientId: zohoConfig.clientId, clientSecret: zohoConfig.clientSecret, portalId: zohoConfig.portalId, domain: 'com' }),
+                      })
+                      const data = await res.json()
+                      if (data.authUrl) window.location.href = data.authUrl
+                      else toast({ title: "❌ Erreur", description: data.error, variant: "destructive" })
+                    } catch { toast({ title: "❌ Erreur réseau", variant: "destructive" }) }
+                    finally { setConnectingZoho(false) }
+                  }}
+                >
+                  {connectingZoho ? <Loader2 className="h-3 w-3 animate-spin" /> : "Reconnecter"}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Pré-requis : ajouter dans Zoho API Console → ton app → <strong>Authorized Redirect URIs</strong> :<br />
+                  <code className="text-[11px] bg-muted rounded px-1">https://neobridge.vercel.app/api/auth/oauth/zoho/callback</code>
+                </p>
+                <Button
+                  type="button"
+                  className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white"
+                  disabled={connectingZoho || !zohoConfig.clientId || !zohoConfig.clientSecret}
+                  onClick={async () => {
+                    setConnectingZoho(true)
+                    try {
+                      const res = await fetch('/api/auth/oauth/zoho', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clientId: zohoConfig.clientId, clientSecret: zohoConfig.clientSecret, portalId: zohoConfig.portalId, domain: 'com' }),
+                      })
+                      const data = await res.json()
+                      if (data.authUrl) window.location.href = data.authUrl
+                      else toast({ title: "❌ Erreur", description: data.error, variant: "destructive" })
+                    } catch { toast({ title: "❌ Erreur réseau", variant: "destructive" }) }
+                    finally { setConnectingZoho(false) }
+                  }}
+                >
+                  {connectingZoho
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Redirection…</>
+                    : <><Key className="h-4 w-4" /> Connecter avec Zoho</>
+                  }
+                </Button>
               </div>
             )}
-
-            {/* Quick-access links */}
-            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">🔗 Accès rapide</p>
-              <div className="flex flex-col gap-1.5">
-                <a
-                  href="https://api-console.zoho.com/"
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
-                >
-                  <span>↗</span> Zoho API Console — gérer l'app OAuth (Server-based)
-                </a>
-                {zohoConfig.portalId && (
-                  <a
-                    href={`https://projects.zoho.com/portal/${zohoConfig.portalId}/`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
-                  >
-                    <span>↗</span> Portail Zoho Projects — {zohoConfig.portalId}
-                  </a>
-                )}
-                <a
-                  href="/dashboard/projects-pm"
-                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
-                >
-                  <span>→</span> Gestion PM dans NeoBridge
-                </a>
-              </div>
-            </div>
           </div>
         )
 
