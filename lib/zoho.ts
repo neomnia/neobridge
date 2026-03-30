@@ -184,4 +184,9 @@ export interface ZohoProject {
   description?: string
   last_modified_time?: string
   owner_name?: string
+  /** Counts returned by Zoho Projects API list endpoint */
+  open_task_count?: number
+  task_count?: number
+  bug_count?: number
+  milestone_count?: number
 }

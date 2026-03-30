@@ -13,7 +13,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Search, Link2, Link2Off, ExternalLink, CheckCircle2,
-  Clock, AlertCircle, FolderKanban, Rocket
+  Clock, AlertCircle, FolderKanban, Rocket, Bug, Milestone, ListTodo
 } from "lucide-react"
 import type { ZohoProject } from "@/lib/zoho"
 import type { VercelProject } from "@/lib/connectors/vercel"
@@ -74,12 +74,13 @@ interface Props {
 // ── component ─────────────────────────────────────────────────────────────────
 
 export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoPortalBaseUrl, isMockData }: Props) {
-  const [search, setSearch] = useState("")
+  const [search, setSearch]           = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [links, setLinks] = useState(initialLinks)
-  const [linking, setLinking] = useState<ZohoProject | null>(null)
+  const [linkFilter, setLinkFilter]   = useState("all")   // "all" | "linked" | "unlinked"
+  const [links, setLinks]             = useState(initialLinks)
+  const [linking, setLinking]         = useState<ZohoProject | null>(null)
   const [vercelSearch, setVercelSearch] = useState("")
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving]           = useState(false)
 
   const filtered = useMemo(() => {
     return zohoProjects.filter(p => {
@@ -88,9 +89,14 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoP
         p.description?.toLowerCase().includes(search.toLowerCase()) ||
         p.owner_name?.toLowerCase().includes(search.toLowerCase())
       const matchStatus = statusFilter === "all" || p.status?.toLowerCase() === statusFilter
-      return matchSearch && matchStatus
+      const isLinked = !!links[p.id]
+      const matchLink =
+        linkFilter === "all" ? true :
+        linkFilter === "linked" ? isLinked :
+        !isLinked
+      return matchSearch && matchStatus && matchLink
     })
-  }, [zohoProjects, search, statusFilter])
+  }, [zohoProjects, search, statusFilter, linkFilter, links])
 
   const filteredVercel = useMemo(() => {
     if (!vercelSearch) return vercelProjects
@@ -100,8 +106,8 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoP
     )
   }, [vercelProjects, vercelSearch])
 
-  const linkedCount = Object.keys(links).length
-  const activeCount = zohoProjects.filter(p => p.status?.toLowerCase() === "active").length
+  const linkedCount  = Object.keys(links).length
+  const activeCount  = zohoProjects.filter(p => p.status?.toLowerCase() === "active").length
 
   async function linkProject(zohoProject: ZohoProject, vercelProject: VercelProjectWithTeam) {
     setSaving(true)
@@ -110,22 +116,22 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoP
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          zohoProjectId: zohoProject.id,
+          zohoProjectId:   zohoProject.id,
           zohoProjectName: zohoProject.name,
-          teamId: vercelProject.teamId,
-          projectId: vercelProject.name,
-          projectName: vercelProject.name,
+          teamId:          vercelProject.teamId,
+          projectId:       vercelProject.name,
+          projectName:     vercelProject.name,
         }),
       })
       setLinks(prev => ({
         ...prev,
         [zohoProject.id]: {
-          zohoProjectId: zohoProject.id,
+          zohoProjectId:   zohoProject.id,
           zohoProjectName: zohoProject.name,
-          teamId: vercelProject.teamId,
-          projectId: vercelProject.name,
-          projectName: vercelProject.name,
-          linkedAt: new Date().toISOString(),
+          teamId:          vercelProject.teamId,
+          projectId:       vercelProject.name,
+          projectName:     vercelProject.name,
+          linkedAt:        new Date().toISOString(),
         },
       }))
       setLinking(null)
@@ -152,10 +158,10 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoP
       {/* ── Stats bar ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Total projets Zoho", value: zohoProjects.length, icon: FolderKanban, color: "text-violet-500" },
-          { label: "Actifs",             value: activeCount,          icon: CheckCircle2, color: "text-green-500" },
-          { label: "Liés à NeoBridge",   value: linkedCount,          icon: Link2,        color: "text-blue-500" },
-          { label: "Non liés",           value: zohoProjects.length - linkedCount, icon: AlertCircle, color: "text-amber-500" },
+          { label: "Total projets Zoho", value: zohoProjects.length,               icon: FolderKanban, color: "text-violet-500" },
+          { label: "Actifs",             value: activeCount,                         icon: CheckCircle2, color: "text-green-500" },
+          { label: "Liés à NeoBridge",   value: linkedCount,                         icon: Link2,        color: "text-blue-500" },
+          { label: "Non liés",           value: zohoProjects.length - linkedCount,   icon: AlertCircle,  color: "text-amber-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="rounded-xl border bg-card p-4 flex items-center gap-3">
             <Icon className={`h-8 w-8 ${color} flex-shrink-0`} />
@@ -189,12 +195,12 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoP
             <SelectItem value="on hold">En pause</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={statusFilter === "linked" ? "linked" : "all"} onValueChange={v => setStatusFilter(v)}>
+        <Select value={linkFilter} onValueChange={setLinkFilter}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Liaison" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tous</SelectItem>
+            <SelectItem value="all">Toutes liaisons</SelectItem>
             <SelectItem value="linked">Liés</SelectItem>
             <SelectItem value="unlinked">Non liés</SelectItem>
           </SelectContent>
@@ -211,6 +217,9 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoP
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(project => {
             const link = links[project.id]
+            const hasStats = project.open_task_count !== undefined ||
+                             project.bug_count !== undefined ||
+                             project.milestone_count !== undefined
             return (
               <div key={project.id}
                 className="rounded-xl border bg-card p-5 flex flex-col gap-4 hover:border-brand/50 transition-colors">
@@ -232,7 +241,31 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoP
                   <p className="text-xs text-muted-foreground line-clamp-2">{project.description}</p>
                 )}
 
-                {/* Meta */}
+                {/* Mini-stats — tasks / bugs / milestones */}
+                {hasStats && (
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    {project.open_task_count !== undefined && (
+                      <span className="flex items-center gap-1">
+                        <ListTodo className="h-3 w-3 text-violet-400" />
+                        {project.open_task_count} tâche{project.open_task_count !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {project.bug_count !== undefined && (
+                      <span className="flex items-center gap-1">
+                        <Bug className="h-3 w-3 text-red-400" />
+                        {project.bug_count} bug{project.bug_count !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {project.milestone_count !== undefined && (
+                      <span className="flex items-center gap-1">
+                        <Milestone className="h-3 w-3 text-blue-400" />
+                        {project.milestone_count} jalon{project.milestone_count !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Meta — last modified */}
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   {relativeTime(project.last_modified_time)}
