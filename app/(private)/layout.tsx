@@ -7,6 +7,8 @@ import { AdminAlerts } from "@/components/admin/admin-alerts"
 
 // Force dynamic rendering for maintenance mode check
 export const dynamic = 'force-dynamic'
+// Give DB queries time to wake up from cold start (Neon serverless)
+export const maxDuration = 30
 
 /**
  * Private Layout - Server Component

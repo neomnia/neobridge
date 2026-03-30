@@ -13,6 +13,7 @@ import type { ZohoProjectLink } from '@/app/api/zoho/links/route'
 
 export const metadata = { title: 'Gestion de projets — NeoBridge' }
 export const dynamic = 'force-dynamic'
+export const maxDuration = 30
 
 async function fetchVercelProjects() {
   try {
