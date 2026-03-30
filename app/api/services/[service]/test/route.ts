@@ -207,8 +207,49 @@ export async function POST(
             break
 
           case 'zoho':
-            if (!testConfig.config?.clientId || !testConfig.config?.refreshToken) throw new Error("Client ID et Refresh Token requis")
-            result = { success: true, message: 'Credentials Zoho format OK — connexion vérifiée au prochain refresh token' }
+            {
+              const { clientId, clientSecret, refreshToken, portalId } = testConfig.config ?? {}
+              if (!clientId || !clientSecret || !refreshToken) {
+                throw new Error("Client ID, Client Secret et Refresh Token sont requis")
+              }
+              // 1. Exchange refresh token → access token
+              const domain = testConfig.config?.domain ?? 'zoho.com'
+              const tokenParams = new URLSearchParams({
+                refresh_token: refreshToken,
+                client_id: clientId,
+                client_secret: clientSecret,
+                grant_type: 'refresh_token',
+              })
+              const tokenRes = await fetch(
+                `https://accounts.${domain}/oauth/v2/token?${tokenParams}`,
+                { method: 'POST' }
+              )
+              if (!tokenRes.ok) {
+                throw new Error(`Zoho token refresh échoué (HTTP ${tokenRes.status}) — vérifiez vos credentials`)
+              }
+              const tokenData = await tokenRes.json()
+              if (tokenData.error) {
+                throw new Error(`Zoho OAuth error: ${tokenData.error} — ${tokenData.error_description ?? ''}`.trim())
+              }
+              const accessToken = tokenData.access_token
+              // 2. Call /portals/ to verify the token and get portal info
+              const apiBase = `https://projectsapi.${domain}/restapi`
+              const portalsRes = await fetch(`${apiBase}/portals/`, {
+                headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }
+              })
+              if (!portalsRes.ok) {
+                throw new Error(`Token valide mais erreur portails Zoho (HTTP ${portalsRes.status})`)
+              }
+              const portalsData = await portalsRes.json()
+              const portals: Array<any> = portalsData.login_info?.portals ?? portalsData.portals ?? []
+              const match = portals.find((p: any) => p.id_string === portalId || p.name === portalId)
+              const portalInfo = match
+                ? `portail "${match.id_string ?? match.name}" · ${match.project_count ?? '?'} projets`
+                : portals.length > 0
+                  ? `connecté (${portals.length} portail${portals.length > 1 ? 's' : ''} disponible${portals.length > 1 ? 's' : ''})`
+                  : 'connecté — aucun portail trouvé'
+              result = { success: true, message: `Zoho Projects connecté ✓ — ${portalInfo}` }
+            }
             break
 
           case 'temporal':

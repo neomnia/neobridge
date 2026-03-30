@@ -1838,11 +1838,45 @@ export default function AdminApiPage() {
               <Label>Portal ID</Label>
               <Input
                 type="text"
-                placeholder="votre-portail"
+                placeholder="neomniadotnet"
                 value={zohoConfig.portalId}
                 onChange={(e) => setZohoConfig({ ...zohoConfig, portalId: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">Slug du portail Zoho Projects (optionnel)</p>
+              <p className="text-xs text-muted-foreground">
+                Slug visible dans l'URL :{' '}
+                <code className="bg-muted px-1 rounded text-[10px]">
+                  projects.zoho.com/portal/<strong>{zohoConfig.portalId || 'votre-portail'}</strong>
+                </code>
+              </p>
+            </div>
+
+            {/* Quick-access links */}
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">🔗 Accès rapide</p>
+              <div className="flex flex-col gap-1.5">
+                <a
+                  href="https://api-console.zoho.com/"
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
+                >
+                  <span>↗</span> Zoho API Console — gérer l'app OAuth (Self Client)
+                </a>
+                {zohoConfig.portalId && (
+                  <a
+                    href={`https://projects.zoho.com/portal/${zohoConfig.portalId}/`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
+                  >
+                    <span>↗</span> Portail Zoho Projects — {zohoConfig.portalId}
+                  </a>
+                )}
+                <a
+                  href="/dashboard/projects-pm"
+                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
+                >
+                  <span>→</span> Gestion PM dans NeoBridge
+                </a>
+              </div>
             </div>
           </div>
         )

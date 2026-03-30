@@ -1,28 +1,45 @@
-import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { getZohoProject } from '@/lib/zoho-data'
-import { Server, Shield, Bot, BarChart3, Settings, ChevronRight } from 'lucide-react'
+import { serviceApiRepository } from '@/lib/services'
+import { syncVercelTeams, listVercelProjects } from '@/lib/connectors/vercel'
 
-const STATUS_LABEL: Record<string, string> = {
-  active:    'Actif',
-  completed: 'Terminé',
-  archived:  'Archivé',
+const DEPLOY_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+  READY:    'default',
+  ERROR:    'destructive',
+  BUILDING: 'secondary',
+  QUEUED:   'outline',
+  CANCELED: 'outline',
+}
+const DEPLOY_LABEL: Record<string, string> = {
+  READY:    'En ligne',
+  ERROR:    'Erreur',
+  BUILDING: 'Build…',
+  QUEUED:   'En attente',
+  CANCELED: 'Annulé',
 }
 
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
-  active:    'default',
-  completed: 'secondary',
-  archived:  'outline',
-}
+async function fetchProjectMeta(teamSlug: string, projectName: string) {
+  try {
+    const config = await serviceApiRepository.getConfig('vercel', 'production')
+    const token = (config?.config as Record<string, unknown> | undefined)?.apiToken as string | undefined
+    if (!token) return null
 
-const tabs = [
-  { name: 'Infrastructure', href: 'infrastructure', icon: Server },
-  { name: 'Gouvernance',    href: 'governance',     icon: Shield },
-  { name: 'Orchestration', href: 'orchestration',  icon: Bot },
-  { name: 'Zoho',          href: 'zoho',           icon: BarChart3 },
-  { name: 'Paramètres',    href: 'settings',       icon: Settings },
-]
+    const vercelTeams = await syncVercelTeams(token)
+    const team = vercelTeams.find((t) => t.slug === teamSlug)
+    if (!team) return null
+
+    const projects = await listVercelProjects(team.id, token)
+    const project = projects.find((p) => p.name === projectName)
+    if (!project) return null
+
+    return {
+      name:       project.name,
+      framework:  project.framework ?? null,
+      deployState: project.latestDeployments?.[0]?.readyState ?? null,
+    }
+  } catch {
+    return null
+  }
+}
 
 export default async function ProjectLayout({
   children,
@@ -32,60 +49,29 @@ export default async function ProjectLayout({
   params: Promise<{ teamId: string; projectId: string }>
 }) {
   const { teamId, projectId } = await params
-  const project = await getZohoProject(projectId)
-  if (!project) notFound()
+  const meta = await fetchProjectMeta(teamId, projectId)
 
-  const teamName = teamId.charAt(0).toUpperCase() + teamId.slice(1)
-  const base = `/dashboard/${teamId}/${projectId}`
+  const displayName = meta?.name ?? projectId
+  const deployState = meta?.deployState ?? null
+  const framework   = meta?.framework ?? null
 
   return (
-    <div className="space-y-0">
-      <div className="border-b pb-4 mb-6">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-3">
-          <Link href="/dashboard" className="hover:text-foreground transition-colors">
-            Dashboard
-          </Link>
-          <ChevronRight className="h-4 w-4" />
-          <Link
-            href={`/dashboard/${teamId}`}
-            className="hover:text-foreground transition-colors"
-          >
-            {teamName}
-          </Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">{project.name}</span>
-        </nav>
-
-        {/* Project header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold">{project.name}</h1>
-            {project.description && (
-              <p className="text-sm text-muted-foreground mt-0.5">{project.description}</p>
-            )}
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4 pb-4 border-b">
+        <div>
+          <h1 className="text-xl font-bold">{displayName}</h1>
+          {framework && (
+            <p className="text-sm text-muted-foreground mt-0.5">{framework}</p>
+          )}
+        </div>
+        {deployState && (
           <Badge
-            variant={STATUS_VARIANT[project.status] ?? 'secondary'}
+            variant={DEPLOY_VARIANT[deployState] ?? 'outline'}
             className="shrink-0"
           >
-            {STATUS_LABEL[project.status] ?? project.status}
+            {DEPLOY_LABEL[deployState] ?? deployState}
           </Badge>
-        </div>
-
-        {/* Tabs */}
-        <nav className="flex gap-1 mt-4 flex-wrap">
-          {tabs.map(({ name, href, icon: Icon }) => (
-            <Link
-              key={href}
-              href={`${base}/${href}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              <Icon className="h-4 w-4" />
-              {name}
-            </Link>
-          ))}
-        </nav>
+        )}
       </div>
 
       {children}
