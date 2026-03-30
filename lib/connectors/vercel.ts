@@ -166,6 +166,23 @@ export async function listProjectDomains(
 }
 
 /**
+ * List recent deployments across all projects for a team (no projectId filter).
+ * GET /v6/deployments?teamId=[vercelTeamId]
+ */
+export async function listAllVercelDeployments(
+  vercelTeamId: string,
+  token: string,
+  limit = 30,
+): Promise<VercelDeployment[]> {
+  const res = await vercelFetch(
+    `/v6/deployments?teamId=${encodeURIComponent(vercelTeamId)}&limit=${limit}`,
+    token,
+  )
+  const data = await res.json()
+  return (data.deployments ?? []) as VercelDeployment[]
+}
+
+/**
  * List recent deployments for a project.
  * GET /v6/deployments?projectId=[projectId]&teamId=[vercelTeamId]
  */

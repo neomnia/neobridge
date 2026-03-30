@@ -31,6 +31,8 @@ import {
   Terminal,
   Globe,
   MessageCircle,
+  LayoutGrid,
+  ScrollText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -42,7 +44,7 @@ import { toast } from "sonner"
 import { useUser } from "@/lib/contexts/user-context"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
 
-const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods", "new"])
+const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods", "new", "projects", "deployments", "logs", "costs"])
 
 interface ActiveProject {
   teamId: string
@@ -73,6 +75,13 @@ const projectSubItems = [
   { name: "Orchestration",  href: "orchestration",  icon: Bot           },
   { name: "Zoho",           href: "zoho",           icon: BarChart3     },
   { name: "Coûts",          href: "costs",          icon: DollarSign    },
+]
+
+const globalNavItems = [
+  { name: "Projets",       href: "/dashboard/projects",     icon: LayoutGrid  },
+  { name: "Déploiements",  href: "/dashboard/deployments",  icon: Rocket      },
+  { name: "Logs",          href: "/dashboard/logs",         icon: ScrollText  },
+  { name: "Coûts",         href: "/dashboard/costs",        icon: DollarSign  },
 ]
 
 const profileSubItems = [
@@ -204,7 +213,7 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
               {isCollapsed ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Link href={`/dashboard/${activeProject.teamId}`} onClick={handleLinkClick}
+                    <Link href="/dashboard/projects" onClick={handleLinkClick}
                       className="flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                       <ChevronLeft className="h-5 w-5" />
                     </Link>
@@ -212,7 +221,7 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
                   <TooltipContent side="right">Retour aux projets</TooltipContent>
                 </Tooltip>
               ) : (
-                <Link href={`/dashboard/${activeProject.teamId}`} onClick={handleLinkClick}
+                <Link href="/dashboard/projects" onClick={handleLinkClick}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors mb-2">
                   <ChevronLeft className="h-4 w-4" />
                   Retour aux projets
@@ -259,11 +268,39 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
           ) : (
             /* ── Global context ─────────────────────────────────────── */
             <>
-              {navLink(
-                teamId ? `/dashboard/${teamId}` : "/dashboard",
-                Home,
-                "Projets",
-                true,
+              {navLink("/dashboard", Home, "Dashboard", true)}
+              {isCollapsed ? (
+                <div className="space-y-1 pt-1">
+                  {globalNavItems.map(({ name, href, icon: Icon }) => {
+                    const isActive = pathname === href || pathname.startsWith(`${href}/`)
+                    return (
+                      <Tooltip key={href}>
+                        <TooltipTrigger asChild>
+                          <Link href={href} onClick={handleLinkClick}
+                            className={cn("flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                              isActive ? "bg-brand text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+                            <Icon className="h-5 w-5" />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">{name}</TooltipContent>
+                      </Tooltip>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-1 pt-1">
+                  {globalNavItems.map(({ name, href, icon: Icon }) => {
+                    const isActive = pathname === href || pathname.startsWith(`${href}/`)
+                    return (
+                      <Link key={href} href={href} onClick={handleLinkClick}
+                        className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          isActive ? "bg-brand text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        {name}
+                      </Link>
+                    )
+                  })}
+                </div>
               )}
             </>
           )}

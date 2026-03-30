@@ -217,14 +217,14 @@ export default async function DashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" className="h-8 gap-1.5" asChild>
-              <Link href="/dashboard">
+              <Link href="/dashboard/new">
                 <Plus className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Nouveau</span>
               </Link>
             </Button>
             {totalProjects > 4 && (
               <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-brand" asChild>
-                <Link href="/dashboard">
+                <Link href="/dashboard/projects">
                   Voir tout
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
@@ -245,7 +245,7 @@ export default async function DashboardPage() {
               </p>
             </div>
             <Button size="sm" asChild>
-              <Link href="/admin/api">Configurer Vercel</Link>
+              <Link href="/admin/api">Configurer Vercel →</Link>
             </Button>
           </div>
         )}
