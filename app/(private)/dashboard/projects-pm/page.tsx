@@ -4,6 +4,7 @@ import { serviceApiRepository } from '@/lib/services'
 import { syncVercelTeams, listVercelProjects } from '@/lib/connectors/vercel'
 import { listZohoProjects, listZohoProjectsWithStatus } from '@/lib/zoho-data'
 import { getZohoPortalUrl, isZohoConfigured } from '@/lib/zoho'
+import type { ZohoProject } from '@/lib/zoho'
 import { db } from '@/db'
 import { platformConfig } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -38,13 +39,26 @@ async function fetchLinks(): Promise<Record<string, ZohoProjectLink>> {
 }
 
 export default async function ProjectsPmPage() {
-  const [{ projects: zohoProjects, isMock, error: syncError }, vercelProjects, links, zohoPortalBaseUrl, zohoConfigured] = await Promise.all([
-    listZohoProjectsWithStatus(),
-    fetchVercelProjects(),
-    fetchLinks(),
-    getZohoPortalUrl(),
-    isZohoConfigured(),
-  ])
+  let zohoProjects: ZohoProject[] = []
+  let isMock = true
+  let syncError: string | undefined
+  let vercelProjects: Awaited<ReturnType<typeof fetchVercelProjects>> = []
+  let links: Record<string, ZohoProjectLink> = {}
+  let zohoPortalBaseUrl = 'https://projects.zoho.com'
+  let zohoConfigured = false
+
+  try {
+    ;[{ projects: zohoProjects, isMock, error: syncError }, vercelProjects, links, zohoPortalBaseUrl, zohoConfigured] = await Promise.all([
+      listZohoProjectsWithStatus(),
+      fetchVercelProjects(),
+      fetchLinks(),
+      getZohoPortalUrl(),
+      isZohoConfigured(),
+    ])
+  } catch (err) {
+    console.error('[projects-pm] Fatal page error:', err)
+    syncError = err instanceof Error ? err.message : String(err)
+  }
 
   return (
     <div className="space-y-6">
