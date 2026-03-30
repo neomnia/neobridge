@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const origin = request.nextUrl.origin
+  const origin = 'https://neobridge.vercel.app'
 
   if (error) {
     console.error('[zoho-callback] Zoho returned error:', error)

@@ -40,9 +40,9 @@ export async function POST(request: NextRequest) {
   // Normalize domain: "com" or "zoho.com" both → "com" for Zoho auth URL
   const rawDomain = domain.replace(/^zoho\./, '')   // "zoho.com" → "com"
 
-  // Always use the canonical production URL to avoid Vercel deployment aliases
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://neobridge.vercel.app'
-  const redirectUri = `${appUrl}/api/auth/oauth/zoho/callback`
+  // Hardcoded production URL — never use Vercel aliases or env vars
+  // which may point to a deployment-specific domain
+  const redirectUri = 'https://neobridge.vercel.app/api/auth/oauth/zoho/callback'
 
   const state = crypto.randomUUID()
 
