@@ -608,8 +608,8 @@ export default function AdminApiPage() {
           setTestingInModal(false)
           return // Sortir car on a déjà géré le test
         case "zoho":
-          if (!zohoConfig.clientId || !zohoConfig.clientSecret || !zohoConfig.refreshToken) {
-            throw new Error("Client ID, Client Secret et Refresh Token sont requis")
+          if (!zohoConfig.clientId || !zohoConfig.clientSecret) {
+            throw new Error("Client ID et Client Secret sont requis")
           }
           config = zohoConfig
           break
@@ -809,8 +809,8 @@ export default function AdminApiPage() {
           metadata = { redirectUri: googleConfig.redirectUri }
           break
         case "zoho":
-          if (!zohoConfig.clientId || !zohoConfig.clientSecret || !zohoConfig.refreshToken) {
-            throw new Error("Client ID, Client Secret et Refresh Token sont requis")
+          if (!zohoConfig.clientId || !zohoConfig.clientSecret) {
+            throw new Error("Client ID et Client Secret sont requis")
           }
           config = zohoConfig
           break
@@ -1756,24 +1756,65 @@ export default function AdminApiPage() {
       case "zoho":
         return (
           <div className="space-y-4">
-            {/* ── OAuth connect button ── */}
-            <div className="rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:border-violet-800 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🔗</span>
-                <p className="text-sm font-medium">Connexion automatique via OAuth2</p>
-              </div>
+            {/* ── Step 1 : credentials ── */}
+            <div className="space-y-2">
+              <Label>Client ID *</Label>
+              <Input
+                type="text"
+                placeholder="1000.XXXXXXXXXXXXXXXXXXXX"
+                value={zohoConfig.clientId}
+                onChange={(e) => setZohoConfig({ ...zohoConfig, clientId: e.target.value })}
+              />
               <p className="text-xs text-muted-foreground">
-                Remplis le Client ID et Client Secret ci-dessous, puis clique <strong>Connecter avec Zoho</strong>.
-                Tu seras redirigé vers Zoho pour autoriser l'accès — le Refresh Token sera sauvegardé automatiquement.
+                <a href="https://api-console.zoho.com/" target="_blank" rel="noopener noreferrer" className="underline text-violet-600">api-console.zoho.com</a>
+                {' '}→ ton app Server-based → onglet Client Secret
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Client Secret *</Label>
+              <div className="relative">
+                <Input
+                  type={showSecretKey ? "text" : "password"}
+                  placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  value={zohoConfig.clientSecret}
+                  onChange={(e) => setZohoConfig({ ...zohoConfig, clientSecret: e.target.value })}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowSecretKey(!showSecretKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Portal ID</Label>
+              <Input
+                type="text"
+                placeholder="neomniadotnet"
+                value={zohoConfig.portalId}
+                onChange={(e) => setZohoConfig({ ...zohoConfig, portalId: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Slug visible dans l'URL :{' '}
+                <code className="bg-muted px-1 rounded text-[10px]">
+                  projects.zoho.com/portal/<strong>{zohoConfig.portalId || 'votre-portail'}</strong>
+                </code>
+              </p>
+            </div>
+
+            {/* ── Step 2 : OAuth connect ── */}
+            <div className="rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:border-violet-800 p-4 space-y-3">
+              <p className="text-sm font-medium">Étape 2 — Autoriser l'accès via OAuth2</p>
+              <p className="text-xs text-muted-foreground">
+                Clique le bouton ci-dessous. Tu seras redirigé vers Zoho pour autoriser NeoBridge.
+                Le Refresh Token sera sauvegardé <strong>automatiquement</strong> — pas besoin de le copier.
               </p>
               <p className="text-xs text-muted-foreground">
-                ⚠️ Pré-requis : enregistrer ces deux URLs dans{' '}
+                ⚠️ Pré-requis : dans{' '}
                 <a href="https://api-console.zoho.com/" target="_blank" rel="noopener noreferrer" className="underline text-violet-600">api-console.zoho.com</a>
-                {' '}→ ton app → <strong>Authorized Redirect URIs</strong> :
+                {' '}→ ton app → <strong>Authorized Redirect URIs</strong>, ajoute :
               </p>
               <code className="block text-[11px] bg-muted rounded px-2 py-1 break-all">
-                https://neobridge.vercel.app/api/auth/oauth/zoho/callback{'\n'}
-                http://localhost:3000/api/auth/oauth/zoho/callback
+                https://neobridge.vercel.app/api/auth/oauth/zoho/callback
               </code>
               <Button
                 type="button"
@@ -1812,111 +1853,27 @@ export default function AdminApiPage() {
               </Button>
             </div>
 
-            <div className="space-y-2">
-              <Label>Client ID *</Label>
-              <Input
-                type="text"
-                placeholder="1000.XXXXXXXXXXXXXXXXXXXX"
-                value={zohoConfig.clientId}
-                onChange={(e) => setZohoConfig({ ...zohoConfig, clientId: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">Zoho API Console → Self Client</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Client Secret *</Label>
-              <div className="relative">
-                <Input
-                  type={showSecretKey ? "text" : "password"}
-                  placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                  value={zohoConfig.clientSecret}
-                  onChange={(e) => setZohoConfig({ ...zohoConfig, clientSecret: e.target.value })}
-                  className="pr-10"
-                />
-                <button type="button" onClick={() => setShowSecretKey(!showSecretKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
-                  {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+            {/* Refresh Token — read-only, auto-filled after OAuth */}
+            {zohoConfig.refreshToken && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  Refresh Token
+                  <span className="text-[10px] font-normal text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded">✓ connecté</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    type={showKey ? "text" : "password"}
+                    value={zohoConfig.refreshToken}
+                    readOnly
+                    className="pr-10 bg-muted/50"
+                  />
+                  <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">Sauvegardé automatiquement via OAuth2. Reconnecte pour le renouveler.</p>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Refresh Token *</Label>
-              <div className="relative">
-                <Input
-                  type={showKey ? "text" : "password"}
-                  placeholder="1000.XXXXXXXXXXXXXXXXXXXX"
-                  value={zohoConfig.refreshToken}
-                  onChange={(e) => setZohoConfig({ ...zohoConfig, refreshToken: e.target.value })}
-                  className="pr-10"
-                />
-                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
-                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground">Généré via le flow OAuth2 Zoho</p>
-            </div>
-
-            {/* OAuth code exchange helper */}
-            <div className="rounded-md border border-dashed border-muted-foreground/40 p-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">⚡ Échange code OAuth → Refresh Token</p>
-              <p className="text-xs text-muted-foreground">Si tu as un code d'autorisation frais (valide ~10 min), colle-le ici pour obtenir le Refresh Token automatiquement.</p>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  placeholder="1000.xxxx.yyyy (code OAuth Zoho)"
-                  value={zohoAuthCode}
-                  onChange={(e) => setZohoAuthCode(e.target.value)}
-                  className="text-xs"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={exchangingZoho || !zohoAuthCode || !zohoConfig.clientId || !zohoConfig.clientSecret}
-                  onClick={async () => {
-                    setExchangingZoho(true)
-                    try {
-                      const res = await fetch('/api/admin/zoho-exchange', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          code: zohoAuthCode,
-                          clientId: zohoConfig.clientId,
-                          clientSecret: zohoConfig.clientSecret,
-                        }),
-                      })
-                      const data = await res.json()
-                      if (data.success) {
-                        setZohoConfig({ ...zohoConfig, refreshToken: data.refreshToken })
-                        setZohoAuthCode("")
-                        toast({ title: "✅ Refresh Token obtenu", description: `Domaine Zoho : ${data.domain}` })
-                      } else {
-                        toast({ title: "❌ Échange échoué", description: data.error, variant: "destructive" })
-                      }
-                    } catch {
-                      toast({ title: "❌ Erreur réseau", variant: "destructive" })
-                    } finally {
-                      setExchangingZoho(false)
-                    }
-                  }}
-                >
-                  {exchangingZoho ? <Loader2 className="h-3 w-3 animate-spin" /> : "Échanger"}
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Portal ID</Label>
-              <Input
-                type="text"
-                placeholder="neomniadotnet"
-                value={zohoConfig.portalId}
-                onChange={(e) => setZohoConfig({ ...zohoConfig, portalId: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                Slug visible dans l'URL :{' '}
-                <code className="bg-muted px-1 rounded text-[10px]">
-                  projects.zoho.com/portal/<strong>{zohoConfig.portalId || 'votre-portail'}</strong>
-                </code>
-              </p>
-            </div>
+            )}
 
             {/* Quick-access links */}
             <div className="rounded-md border bg-muted/30 p-3 space-y-2">
@@ -1927,7 +1884,7 @@ export default function AdminApiPage() {
                   target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
                 >
-                  <span>↗</span> Zoho API Console — gérer l'app OAuth (Self Client)
+                  <span>↗</span> Zoho API Console — gérer l'app OAuth (Server-based)
                 </a>
                 {zohoConfig.portalId && (
                   <a
