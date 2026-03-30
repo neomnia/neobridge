@@ -1,10 +1,14 @@
 /**
  * Zoho Projects API client
  * Handles OAuth token refresh and API calls.
+ *
+ * ZOHO_DOMAIN controls the datacenter (default: zoho.com).
+ * Set to "zoho.eu" for EU-hosted accounts, "zoho.in" for IN, etc.
  */
 
-const ZOHO_TOKEN_URL = "https://accounts.zoho.eu/oauth/v2/token"
-const ZOHO_API_BASE = "https://projectsapi.zoho.eu/restapi"
+const ZOHO_DOMAIN = process.env.ZOHO_DOMAIN ?? "zoho.com"
+const ZOHO_TOKEN_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/v2/token`
+const ZOHO_API_BASE  = `https://projectsapi.${ZOHO_DOMAIN}/restapi`
 
 let cachedToken: { access_token: string; expires_at: number } | null = null
 

@@ -36,7 +36,19 @@ async function fetchLinks(): Promise<Record<string, ZohoProjectLink>> {
   } catch { return {} }
 }
 
+// Build the Zoho portal base URL from env vars so it works for both
+// zoho.com (global) and zoho.eu (EU) accounts.
+// ZOHO_DOMAIN  = "zoho.com"         (default) or "zoho.eu", "zoho.in" …
+// ZOHO_PORTAL_ID = "neomniadotnet"  (the portal slug visible in the URL)
+function getZohoPortalBaseUrl() {
+  const domain     = process.env.ZOHO_DOMAIN     ?? "zoho.com"
+  const portalSlug = process.env.ZOHO_PORTAL_ID  ?? ""
+  return `https://projects.${domain}/portal/${portalSlug}`
+}
+
 export default async function ProjectsPmPage() {
+  const zohoPortalBaseUrl = getZohoPortalBaseUrl()
+
   const [zohoProjects, vercelProjects, links] = await Promise.all([
     listZohoProjects(),
     fetchVercelProjects(),
@@ -57,7 +69,7 @@ export default async function ProjectsPmPage() {
           </div>
         </div>
         <a
-          href="https://projects.zoho.eu"
+          href={zohoPortalBaseUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors border rounded-lg px-3 py-2"
@@ -75,7 +87,7 @@ export default async function ProjectsPmPage() {
           <Link href="/admin/api" className="underline underline-offset-2 text-amber-700 dark:text-amber-400">
             Admin → API Management
           </Link>
-          {' '}pour synchroniser vos projets.
+          {' '}(ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN, ZOHO_PORTAL_ID).
         </div>
       )}
 
@@ -83,6 +95,7 @@ export default async function ProjectsPmPage() {
         zohoProjects={zohoProjects}
         vercelProjects={vercelProjects}
         initialLinks={links}
+        zohoPortalBaseUrl={zohoPortalBaseUrl}
       />
     </div>
   )

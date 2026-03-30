@@ -65,11 +65,13 @@ interface Props {
   zohoProjects: ZohoProject[]
   vercelProjects: VercelProjectWithTeam[]
   initialLinks: Record<string, ZohoProjectLink>
+  /** e.g. "https://projects.zoho.com/portal/neomniadotnet" */
+  zohoPortalBaseUrl: string
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks }: Props) {
+export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoPortalBaseUrl }: Props) {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [links, setLinks] = useState(initialLinks)
@@ -276,7 +278,7 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks }: Pro
                 {/* Footer links */}
                 <div className="flex items-center gap-2 pt-1 border-t">
                   <a
-                    href={`https://projects.zoho.eu/portal/${process.env.NEXT_PUBLIC_ZOHO_PORTAL_SLUG ?? "neomnia"}/projects/${project.id}`}
+                    href={`${zohoPortalBaseUrl}/projects/${project.id}`}
                     target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
