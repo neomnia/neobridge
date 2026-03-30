@@ -346,6 +346,8 @@ export default function AdminApiPage() {
   const [zohoAuthCode, setZohoAuthCode] = useState("")
   const [exchangingZoho, setExchangingZoho] = useState(false)
   const [connectingZoho, setConnectingZoho] = useState(false)
+  const [zohoOAuthResult, setZohoOAuthResult] = useState<'connected' | 'error' | null>(null)
+  const [zohoOAuthError, setZohoOAuthError] = useState<string | null>(null)
   const [temporalConfig, setTemporalConfig] = useState({
     address: "",
     namespace: "default",
@@ -359,18 +361,18 @@ export default function AdminApiPage() {
   const [vercelConfig, setVercelConfig] = useState({ apiToken: "" })
 
   useEffect(() => {
-    loadAllConfigs()
-    // Handle Zoho OAuth callback result
+    // Check OAuth callback result BEFORE loading configs so banner shows immediately
     const params = new URLSearchParams(window.location.search)
     const zohoResult = params.get('zoho')
     if (zohoResult === 'connected') {
-      toast({ title: "✅ Zoho connecté", description: "Refresh Token sauvegardé automatiquement en base." })
+      setZohoOAuthResult('connected')
       window.history.replaceState({}, '', window.location.pathname)
     } else if (zohoResult === 'error') {
-      const reason = params.get('reason') ?? 'unknown'
-      toast({ title: "❌ Connexion Zoho échouée", description: reason, variant: "destructive" })
+      setZohoOAuthResult('error')
+      setZohoOAuthError(params.get('reason') ?? 'unknown')
       window.history.replaceState({}, '', window.location.pathname)
     }
+    loadAllConfigs()
   }, [])
 
   const loadAllConfigs = async () => {
@@ -1756,6 +1758,27 @@ export default function AdminApiPage() {
       case "zoho":
         return (
           <div className="space-y-4">
+            {/* OAuth result banner — persiste jusqu'à fermeture manuelle */}
+            {zohoOAuthResult === 'connected' && (
+              <div className="flex items-start gap-3 rounded-lg border border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-700 p-4">
+                <span className="text-green-600 text-lg leading-none">✓</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-green-700 dark:text-green-400">Zoho connecté avec succès</p>
+                  <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">Le Refresh Token a été sauvegardé en base. Vos projets Zoho sont maintenant accessibles.</p>
+                </div>
+                <button onClick={() => setZohoOAuthResult(null)} className="text-green-500 hover:text-green-700 text-lg leading-none">×</button>
+              </div>
+            )}
+            {zohoOAuthResult === 'error' && (
+              <div className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-700 p-4">
+                <span className="text-red-600 text-lg leading-none">✗</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-400">Connexion Zoho échouée</p>
+                  <p className="text-xs text-red-600 dark:text-red-500 mt-0.5 font-mono">{zohoOAuthError}</p>
+                </div>
+                <button onClick={() => setZohoOAuthResult(null)} className="text-red-500 hover:text-red-700 text-lg leading-none">×</button>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Client ID *</Label>
               <Input
