@@ -6,8 +6,8 @@
  *   1. service_api_configs DB (Admin → API Management → Zoho)
  *   2. Environment variables (ZOHO_CLIENT_ID, etc.) as fallback
  *
- * ZOHO_DOMAIN / config.domain controls the datacenter:
- *   "zoho.com" (global/US, default) | "zoho.eu" | "zoho.in" | "zoho.com.au"
+ * ZOHO_DOMAIN accepts both short forms ("com", "eu", "in") and full forms
+ * ("zoho.com", "zoho.eu") — both are normalized to the full form.
  */
 
 import { serviceApiRepository } from '@/lib/services'
@@ -18,11 +18,22 @@ interface ZohoDbConfig {
   refreshToken?: string
   /** Portal slug — visible in https://projects.zoho.com/portal/<portalId> */
   portalId?: string
-  /** Zoho datacenter domain, e.g. "zoho.com" or "zoho.eu" */
+  /** Zoho datacenter: "com" | "eu" | "in" | "zoho.com" | "zoho.eu" */
   domain?: string
 }
 
 let cachedToken: { access_token: string; expires_at: number } | null = null
+
+/**
+ * Normalizes domain to full form: "com" → "zoho.com", "eu" → "zoho.eu"
+ * "zoho.com" and "zoho.eu" are returned as-is.
+ */
+function normalizeDomain(raw?: string): string {
+  if (!raw) return 'zoho.com'
+  const d = raw.trim().toLowerCase()
+  if (d.startsWith('zoho.')) return d   // already "zoho.com", "zoho.eu", etc.
+  return `zoho.${d}`                    // "com" → "zoho.com"
+}
 
 async function getZohoCreds(): Promise<{
   clientId: string
@@ -40,8 +51,8 @@ async function getZohoCreds(): Promise<{
         clientId:     c.clientId,
         clientSecret: c.clientSecret,
         refreshToken: c.refreshToken,
-        portalId:     c.portalId     ?? process.env.ZOHO_PORTAL_ID ?? '',
-        domain:       c.domain       ?? process.env.ZOHO_DOMAIN    ?? 'zoho.com',
+        portalId:     c.portalId ?? process.env.ZOHO_PORTAL_ID ?? '',
+        domain:       normalizeDomain(c.domain ?? process.env.ZOHO_DOMAIN),
       }
     }
   } catch { /* fall through to env vars */ }
@@ -58,7 +69,7 @@ async function getZohoCreds(): Promise<{
     clientSecret: ZOHO_CLIENT_SECRET,
     refreshToken: ZOHO_REFRESH_TOKEN,
     portalId:     process.env.ZOHO_PORTAL_ID ?? '',
-    domain:       process.env.ZOHO_DOMAIN    ?? 'zoho.com',
+    domain:       normalizeDomain(process.env.ZOHO_DOMAIN),
   }
 }
 
