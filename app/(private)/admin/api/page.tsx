@@ -345,6 +345,7 @@ export default function AdminApiPage() {
   })
   const [zohoAuthCode, setZohoAuthCode] = useState("")
   const [exchangingZoho, setExchangingZoho] = useState(false)
+  const [connectingZoho, setConnectingZoho] = useState(false)
   const [temporalConfig, setTemporalConfig] = useState({
     address: "",
     namespace: "default",
@@ -359,6 +360,17 @@ export default function AdminApiPage() {
 
   useEffect(() => {
     loadAllConfigs()
+    // Handle Zoho OAuth callback result
+    const params = new URLSearchParams(window.location.search)
+    const zohoResult = params.get('zoho')
+    if (zohoResult === 'connected') {
+      toast({ title: "✅ Zoho connecté", description: "Refresh Token sauvegardé automatiquement en base." })
+      window.history.replaceState({}, '', window.location.pathname)
+    } else if (zohoResult === 'error') {
+      const reason = params.get('reason') ?? 'unknown'
+      toast({ title: "❌ Connexion Zoho échouée", description: reason, variant: "destructive" })
+      window.history.replaceState({}, '', window.location.pathname)
+    }
   }, [])
 
   const loadAllConfigs = async () => {
@@ -1744,6 +1756,62 @@ export default function AdminApiPage() {
       case "zoho":
         return (
           <div className="space-y-4">
+            {/* ── OAuth connect button ── */}
+            <div className="rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:border-violet-800 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🔗</span>
+                <p className="text-sm font-medium">Connexion automatique via OAuth2</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Remplis le Client ID et Client Secret ci-dessous, puis clique <strong>Connecter avec Zoho</strong>.
+                Tu seras redirigé vers Zoho pour autoriser l'accès — le Refresh Token sera sauvegardé automatiquement.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                ⚠️ Pré-requis : enregistrer ces deux URLs dans{' '}
+                <a href="https://api-console.zoho.com/" target="_blank" rel="noopener noreferrer" className="underline text-violet-600">api-console.zoho.com</a>
+                {' '}→ ton app → <strong>Authorized Redirect URIs</strong> :
+              </p>
+              <code className="block text-[11px] bg-muted rounded px-2 py-1 break-all">
+                https://neobridge.vercel.app/api/auth/oauth/zoho/callback{'\n'}
+                http://localhost:3000/api/auth/oauth/zoho/callback
+              </code>
+              <Button
+                type="button"
+                className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white"
+                disabled={connectingZoho || !zohoConfig.clientId || !zohoConfig.clientSecret}
+                onClick={async () => {
+                  setConnectingZoho(true)
+                  try {
+                    const res = await fetch('/api/auth/oauth/zoho', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        clientId:     zohoConfig.clientId,
+                        clientSecret: zohoConfig.clientSecret,
+                        portalId:     zohoConfig.portalId,
+                        domain:       'com',
+                      }),
+                    })
+                    const data = await res.json()
+                    if (data.authUrl) {
+                      window.location.href = data.authUrl
+                    } else {
+                      toast({ title: "❌ Erreur", description: data.error ?? "Impossible de générer l'URL OAuth", variant: "destructive" })
+                    }
+                  } catch {
+                    toast({ title: "❌ Erreur réseau", variant: "destructive" })
+                  } finally {
+                    setConnectingZoho(false)
+                  }
+                }}
+              >
+                {connectingZoho
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Redirection…</>
+                  : <><Key className="h-4 w-4" /> Connecter avec Zoho</>
+                }
+              </Button>
+            </div>
+
             <div className="space-y-2">
               <Label>Client ID *</Label>
               <Input
