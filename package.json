@@ -124,7 +124,7 @@
     "jsonwebtoken": "latest",
     "lago-javascript-client": "^1.36.0",
     "lucide-react": "^0.454.0",
-    "next": "latest",
+    "next": "15.5.8",
     "next-themes": "latest",
     "pg": "^8.16.3",
     "react": "^19",
