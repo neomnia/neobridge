@@ -41,6 +41,17 @@ export interface VercelDeployment {
   target: string | null
   createdAt: number
   readyAt: number | null
+  meta?: {
+    githubCommitRef?: string
+    githubCommitMessage?: string
+    githubCommitAuthorName?: string
+    githubCommitSha?: string
+  }
+  creator?: {
+    uid: string
+    username?: string
+    email?: string
+  }
 }
 
 // ---------------------------------------------------------------------------

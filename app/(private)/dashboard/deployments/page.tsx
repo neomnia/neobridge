@@ -1,141 +1,102 @@
 import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Rocket, GitBranch, ArrowUpRight, Key } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Key } from 'lucide-react'
 import { serviceApiRepository } from '@/lib/services'
-import { syncVercelTeams, listAllVercelDeployments } from '@/lib/connectors/vercel'
-import { formatDistanceToNow } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { syncVercelTeams, listAllVercelDeployments, type VercelDeployment } from '@/lib/connectors/vercel'
+import { getSystemLogs } from '@/app/actions/logs'
+import { DeploymentsClient, type DeploymentRow } from '@/components/dashboard/deployments-client'
 
 export const metadata = { title: 'Déploiements — NeoBridge' }
 export const dynamic = 'force-dynamic'
 
-const STATE_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
-  READY: 'default', ERROR: 'destructive', BUILDING: 'secondary',
-  QUEUED: 'outline', CANCELED: 'outline',
-}
-const STATE_LABEL: Record<string, string> = {
-  READY: 'En ligne', ERROR: 'Erreur', BUILDING: 'Build…',
-  QUEUED: 'En attente', CANCELED: 'Annulé',
-}
-
-interface DeploymentRow {
-  uid: string; name: string; url: string; state: string
-  target: string | null; createdAt: number; readyAt: number | null
-  teamSlug: string
-}
-
-async function fetchDeployments(): Promise<DeploymentRow[] | null> {
+async function fetchVercelDeployments(): Promise<{ rows: DeploymentRow[]; token: boolean }> {
   try {
     const config = await serviceApiRepository.getConfig('vercel', 'production')
     const token = (config?.config as Record<string, unknown>)?.apiToken as string | undefined
-    if (!token) return null
+    if (!token) return { rows: [], token: false }
+
     const teams = await syncVercelTeams(token)
-    if (!teams.length) return null
+    if (!teams.length) return { rows: [], token: true }
+
     const grouped = await Promise.all(
       teams.map(async (team) => {
-        const deployments = await listAllVercelDeployments(team.id, token, 30)
-        return deployments.map((d) => ({ ...d, teamSlug: team.slug }))
+        const deployments: VercelDeployment[] = await listAllVercelDeployments(team.id, token, 50)
+        return deployments.map<DeploymentRow>((d) => ({
+          id:         d.uid,
+          shortId:    d.uid.slice(-9),
+          project:    d.name,
+          teamSlug:   team.slug,
+          env:        d.target === 'production' ? 'Production' : d.target === 'development' ? 'Development' : 'Preview',
+          state:      d.state,
+          duration:   d.readyAt ? Math.round((d.readyAt - d.createdAt) / 1000) : null,
+          branch:     d.meta?.githubCommitRef ?? null,
+          commitMsg:  d.meta?.githubCommitMessage ?? null,
+          commitSha:  d.meta?.githubCommitSha?.slice(0, 7) ?? null,
+          author:     d.meta?.githubCommitAuthorName ?? d.creator?.username ?? null,
+          createdAt:  d.createdAt,
+          source:     'vercel',
+          url:        d.url ?? null,
+        }))
       }),
     )
-    return grouped.flat().sort((a, b) => b.createdAt - a.createdAt).slice(0, 50)
-  } catch { return null }
+    const rows = grouped.flat().sort((a, b) => b.createdAt - a.createdAt)
+    return { rows, token: true }
+  } catch {
+    return { rows: [], token: false }
+  }
+}
+
+async function fetchNeoBridgeDeployments(): Promise<DeploymentRow[]> {
+  try {
+    const result = await getSystemLogs({ category: 'deployment' })
+    if (!result.success) return []
+    return (result.data ?? []).map<DeploymentRow>((log) => ({
+      id:        log.id,
+      shortId:   log.id.slice(-8),
+      project:   'neobridge',
+      teamSlug:  'neomnia-studio',
+      env:       'Production',
+      state:     log.level === 'error' ? 'ERROR' : 'READY',
+      duration:  null,
+      branch:    null,
+      commitMsg: log.message,
+      commitSha: null,
+      author:    log.user ? `${log.user.firstName} ${log.user.lastName}`.trim() : null,
+      createdAt: log.createdAt ? new Date(log.createdAt).getTime() : Date.now(),
+      source:    'neobridge',
+      url:       null,
+    }))
+  } catch {
+    return []
+  }
 }
 
 export default async function DeploymentsPage() {
-  const deployments = await fetchDeployments()
+  const [{ rows: vercelRows, token }, neobridgeRows] = await Promise.all([
+    fetchVercelDeployments(),
+    fetchNeoBridgeDeployments(),
+  ])
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Rocket className="h-6 w-6 text-muted-foreground" />
+  if (!token) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+          <Key className="h-7 w-7 text-muted-foreground" />
+        </div>
         <div>
-          <h1 className="text-2xl font-bold">Déploiements</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {deployments ? `${deployments.length} déploiements récents · Vercel` : 'Token Vercel requis'}
+          <p className="font-semibold text-lg">Token Vercel non configuré</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Configurez votre token dans Gestion des API pour voir les déploiements.
           </p>
         </div>
+        <Button asChild>
+          <Link href="/admin/api">Configurer Vercel</Link>
+        </Button>
       </div>
+    )
+  }
 
-      {deployments === null && (
-        <div className="flex flex-col items-center justify-center border border-dashed rounded-lg py-20 text-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <Key className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <p className="font-medium">Token Vercel non configuré</p>
-          <Button asChild><Link href="/admin/api">Configurer Vercel</Link></Button>
-        </div>
-      )}
+  const all = [...vercelRows, ...neobridgeRows].sort((a, b) => b.createdAt - a.createdAt)
 
-      {deployments !== null && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Tous les déploiements</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {deployments.length === 0 ? (
-              <p className="text-sm text-muted-foreground px-6 pb-6">Aucun déploiement trouvé.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Projet</TableHead>
-                    <TableHead className="hidden md:table-cell">Branche</TableHead>
-                    <TableHead className="hidden lg:table-cell">URL</TableHead>
-                    <TableHead className="hidden sm:table-cell">Cible</TableHead>
-                    <TableHead className="text-right">Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {deployments.map((d) => (
-                    <TableRow key={d.uid}>
-                      <TableCell>
-                        <Badge variant={STATE_VARIANT[d.state] ?? 'outline'} className="text-xs">
-                          {STATE_LABEL[d.state] ?? d.state}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Link
-                          href={`/dashboard/${d.teamSlug}/${d.name}/deployments`}
-                          className="font-medium text-sm hover:underline"
-                        >
-                          {d.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <span className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-                          <GitBranch className="h-3 w-3" />
-                          {d.name}
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {d.url && (
-                          <a href={`https://${d.url}`} target="_blank" rel="noreferrer"
-                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-                            {d.url.length > 35 ? `${d.url.slice(0, 35)}…` : d.url}
-                            <ArrowUpRight className="h-3 w-3 shrink-0" />
-                          </a>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <Badge variant="outline" className="text-xs">
-                          {d.target ?? 'preview'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                        {formatDistanceToNow(new Date(d.createdAt), { addSuffix: true, locale: fr })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  )
+  return <DeploymentsClient deployments={all} />
 }
