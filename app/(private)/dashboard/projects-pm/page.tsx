@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { serviceApiRepository } from '@/lib/services'
 import { syncVercelTeams, listVercelProjects } from '@/lib/connectors/vercel'
 import { listZohoProjects } from '@/lib/zoho-data'
-import { getZohoPortalUrl } from '@/lib/zoho'
+import { getZohoPortalUrl, isZohoConfigured } from '@/lib/zoho'
 import { db } from '@/db'
 import { platformConfig } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -38,14 +38,13 @@ async function fetchLinks(): Promise<Record<string, ZohoProjectLink>> {
 }
 
 export default async function ProjectsPmPage() {
-  const [zohoProjects, vercelProjects, links, zohoPortalBaseUrl] = await Promise.all([
+  const [zohoProjects, vercelProjects, links, zohoPortalBaseUrl, zohoConfigured] = await Promise.all([
     listZohoProjects(),
     fetchVercelProjects(),
     fetchLinks(),
     getZohoPortalUrl(),
+    isZohoConfigured(),
   ])
-
-  const zohoConfigured = zohoProjects.some(p => p.id !== 'p1' && p.id !== 'p2')
 
   return (
     <div className="space-y-6">
@@ -73,13 +72,18 @@ export default async function ProjectsPmPage() {
 
       {/* Info banner when Zoho not configured */}
       {!zohoConfigured && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-sm">
-          <strong>Zoho Projects non configuré.</strong>{' '}
-          Ajoutez vos credentials Zoho OAuth dans{' '}
-          <Link href="/admin/api" className="underline underline-offset-2 text-amber-700 dark:text-amber-400">
-            Admin → API Management → Zoho
-          </Link>
-          {' '}(Client ID, Client Secret, Refresh Token, Portal ID). Les données affichées sont des exemples.
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-sm space-y-1">
+          <p><strong>Mode démonstration</strong> — credentials Zoho absents.</p>
+          <p>
+            Configurez votre connexion dans{' '}
+            <Link href="/admin/api" className="underline underline-offset-2 text-amber-700 dark:text-amber-400">
+              Admin → API Management → Zoho
+            </Link>
+            {' '}avec : Client ID · Client Secret · Refresh Token · Portal ID (<code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">neomniadotnet</code>).
+          </p>
+          <p className="text-amber-600 dark:text-amber-400 text-xs">
+            Cliquez "Verify Key" après saisie pour valider la connexion avant de sauvegarder.
+          </p>
         </div>
       )}
 

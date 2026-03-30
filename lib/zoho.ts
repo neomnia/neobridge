@@ -78,10 +78,12 @@ export async function getZohoAccessToken(): Promise<string> {
   })
 
   const res = await fetch(`${tokenUrl}?${params}`, { method: 'POST' })
-  if (!res.ok) throw new Error(`Zoho token refresh failed: ${res.status}`)
+  if (!res.ok) throw new Error(`Zoho token refresh failed (HTTP ${res.status}) — vérifiez vos credentials dans Admin → API Management → Zoho`)
 
   const data = await res.json()
-  if (data.error) throw new Error(`Zoho token error: ${data.error}`)
+  if (data.error) {
+    throw new Error(`Zoho OAuth error: ${data.error}${data.error_description ? ' — ' + data.error_description : ''}`)
+  }
 
   cachedToken = {
     access_token: data.access_token,
@@ -95,7 +97,10 @@ export async function zohoFetch(
   path: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const [token, creds] = await Promise.all([getZohoAccessToken(), getZohoCreds()])
+  // getZohoAccessToken already calls getZohoCreds() internally; call creds
+  // separately only to get domain+portalId (token is cached after first call)
+  const creds = await getZohoCreds()
+  const token = await getZohoAccessToken()
   const apiBase = `https://projectsapi.${creds.domain}/restapi`
   const url = `${apiBase}/portal/${creds.portalId}${path}`
 
@@ -107,6 +112,19 @@ export async function zohoFetch(
       ...(options.headers ?? {}),
     },
   })
+}
+
+/**
+ * Returns true when Zoho credentials are available (DB or env vars).
+ * Does NOT verify the token is valid — use the /api/services/zoho/test route for that.
+ */
+export async function isZohoConfigured(): Promise<boolean> {
+  try {
+    await getZohoCreds()
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
