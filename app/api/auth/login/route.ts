@@ -5,13 +5,14 @@ import { verifyPassword, createToken, setAuthCookie } from '@/lib/auth';
 import { eq, or } from 'drizzle-orm';
 import { logSystemEvent } from '@/app/actions/logs';
 
+export const maxDuration = 30
+
 export async function POST(request: NextRequest) {
   try {
     validateDatabaseUrl();
     const body = await request.json();
     const { email, password } = body;
 
-    // Validate required fields
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
@@ -19,10 +20,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user by email or username
-    const user = await db.query.users.findFirst({
-      where: or(eq(users.email, email), eq(users.username, email)),
-    });
+    // Retry once on transient DB error (Neon cold start)
+    let user = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        user = await db.query.users.findFirst({
+          where: or(eq(users.email, email), eq(users.username, email)),
+        });
+        break;
+      } catch (err) {
+        if (attempt === 2) throw err;
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    }
 
     if (!user) {
       await logSystemEvent({
