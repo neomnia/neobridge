@@ -54,6 +54,8 @@ Thumbs.db
 # Logs
 logs
 *.log
+!app/**/logs/
+!app/**/logs/**
 
 # Temporary files
 tmp/

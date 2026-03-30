@@ -193,6 +193,42 @@ export async function listAllVercelDeployments(
   return (data.deployments ?? []) as VercelDeployment[]
 }
 
+export interface VercelLogEvent {
+  id: string
+  text: string
+  type: 'stdout' | 'stderr'
+  created: number
+  level?: 'error' | 'warning' | 'info' | 'debug'
+}
+
+/**
+ * Fetch build/runtime log events for a deployment.
+ * GET /v2/deployments/[deploymentId]/events
+ */
+export async function listDeploymentEvents(
+  deploymentId: string,
+  token: string,
+  limit = 100,
+): Promise<VercelLogEvent[]> {
+  try {
+    const res = await vercelFetch(
+      `/v2/deployments/${encodeURIComponent(deploymentId)}/events?follow=0&limit=${limit}`,
+      token,
+    )
+    const data = await res.json()
+    const events: Array<{ id: string; text: string; type: string; created: number }> = data.events ?? data ?? []
+    return events.map((e) => ({
+      id: String(e.id ?? e.created),
+      text: e.text ?? '',
+      type: (e.type === 'stderr' ? 'stderr' : 'stdout') as 'stdout' | 'stderr',
+      created: e.created,
+      level: e.type === 'stderr' ? 'error' : 'info',
+    }))
+  } catch {
+    return []
+  }
+}
+
 /**
  * List recent deployments for a project.
  * GET /v6/deployments?projectId=[projectId]&teamId=[vercelTeamId]
