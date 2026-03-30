@@ -1,13 +1,14 @@
 /**
  * Zoho data layer — callable from Server Components directly.
  * Avoids internal fetch() which loses auth cookies.
- * Mock mode: NEXT_PUBLIC_USE_MOCK=true OR ZOHO_CLIENT_ID absent.
+ * Mock mode: NEXT_PUBLIC_USE_MOCK=true only.
+ * Credentials come from DB (Admin → API Management) or env vars — checked
+ * inside zohoFetch(). If neither is configured, the catch blocks return mocks.
  */
 import { zohoFetch } from './zoho'
 import type { ZohoProject, ZohoTask, ZohoMilestone } from './zoho'
 
-const MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
-const useMock = () => MOCK || !process.env.ZOHO_CLIENT_ID
+const useMock = () => process.env.NEXT_PUBLIC_USE_MOCK === 'true'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 

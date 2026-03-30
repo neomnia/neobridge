@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { serviceApiRepository } from '@/lib/services'
 import { syncVercelTeams, listVercelProjects } from '@/lib/connectors/vercel'
 import { listZohoProjects } from '@/lib/zoho-data'
+import { getZohoPortalUrl } from '@/lib/zoho'
 import { db } from '@/db'
 import { platformConfig } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -36,24 +37,15 @@ async function fetchLinks(): Promise<Record<string, ZohoProjectLink>> {
   } catch { return {} }
 }
 
-// Build the Zoho portal base URL from env vars so it works for both
-// zoho.com (global) and zoho.eu (EU) accounts.
-// ZOHO_DOMAIN  = "zoho.com"         (default) or "zoho.eu", "zoho.in" …
-// ZOHO_PORTAL_ID = "neomniadotnet"  (the portal slug visible in the URL)
-function getZohoPortalBaseUrl() {
-  const domain     = process.env.ZOHO_DOMAIN     ?? "zoho.com"
-  const portalSlug = process.env.ZOHO_PORTAL_ID  ?? ""
-  return `https://projects.${domain}/portal/${portalSlug}`
-}
-
 export default async function ProjectsPmPage() {
-  const zohoPortalBaseUrl = getZohoPortalBaseUrl()
-
-  const [zohoProjects, vercelProjects, links] = await Promise.all([
+  const [zohoProjects, vercelProjects, links, zohoPortalBaseUrl] = await Promise.all([
     listZohoProjects(),
     fetchVercelProjects(),
     fetchLinks(),
+    getZohoPortalUrl(),
   ])
+
+  const zohoConfigured = zohoProjects.some(p => p.id !== 'p1' && p.id !== 'p2')
 
   return (
     <div className="space-y-6">
@@ -80,14 +72,14 @@ export default async function ProjectsPmPage() {
       </div>
 
       {/* Info banner when Zoho not configured */}
-      {zohoProjects.length === 0 && (
+      {!zohoConfigured && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-sm">
           <strong>Zoho Projects non configuré.</strong>{' '}
           Ajoutez vos credentials Zoho OAuth dans{' '}
           <Link href="/admin/api" className="underline underline-offset-2 text-amber-700 dark:text-amber-400">
-            Admin → API Management
+            Admin → API Management → Zoho
           </Link>
-          {' '}(ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN, ZOHO_PORTAL_ID).
+          {' '}(Client ID, Client Secret, Refresh Token, Portal ID). Les données affichées sont des exemples.
         </div>
       )}
 

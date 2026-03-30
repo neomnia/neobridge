@@ -2,34 +2,82 @@
  * Zoho Projects API client
  * Handles OAuth token refresh and API calls.
  *
- * ZOHO_DOMAIN controls the datacenter (default: zoho.com).
- * Set to "zoho.eu" for EU-hosted accounts, "zoho.in" for IN, etc.
+ * Credential resolution order:
+ *   1. service_api_configs DB (Admin → API Management → Zoho)
+ *   2. Environment variables (ZOHO_CLIENT_ID, etc.) as fallback
+ *
+ * ZOHO_DOMAIN / config.domain controls the datacenter:
+ *   "zoho.com" (global/US, default) | "zoho.eu" | "zoho.in" | "zoho.com.au"
  */
 
-const ZOHO_DOMAIN = process.env.ZOHO_DOMAIN ?? "zoho.com"
-const ZOHO_TOKEN_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/v2/token`
-const ZOHO_API_BASE  = `https://projectsapi.${ZOHO_DOMAIN}/restapi`
+import { serviceApiRepository } from '@/lib/services'
+
+interface ZohoDbConfig {
+  clientId?: string
+  clientSecret?: string
+  refreshToken?: string
+  /** Portal slug — visible in https://projects.zoho.com/portal/<portalId> */
+  portalId?: string
+  /** Zoho datacenter domain, e.g. "zoho.com" or "zoho.eu" */
+  domain?: string
+}
 
 let cachedToken: { access_token: string; expires_at: number } | null = null
+
+async function getZohoCreds(): Promise<{
+  clientId: string
+  clientSecret: string
+  refreshToken: string
+  portalId: string
+  domain: string
+}> {
+  // 1. Try DB config (Admin → API Management → Zoho)
+  try {
+    const cfg = await serviceApiRepository.getConfig('zoho', 'production')
+    const c = cfg?.config as ZohoDbConfig | undefined
+    if (c?.clientId && c?.clientSecret && c?.refreshToken) {
+      return {
+        clientId:     c.clientId,
+        clientSecret: c.clientSecret,
+        refreshToken: c.refreshToken,
+        portalId:     c.portalId     ?? process.env.ZOHO_PORTAL_ID ?? '',
+        domain:       c.domain       ?? process.env.ZOHO_DOMAIN    ?? 'zoho.com',
+      }
+    }
+  } catch { /* fall through to env vars */ }
+
+  // 2. Env vars fallback
+  const { ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN } = process.env
+  if (!ZOHO_CLIENT_ID || !ZOHO_CLIENT_SECRET || !ZOHO_REFRESH_TOKEN) {
+    throw new Error(
+      'Zoho credentials not configured. Add them in Admin → API Management → Zoho.'
+    )
+  }
+  return {
+    clientId:     ZOHO_CLIENT_ID,
+    clientSecret: ZOHO_CLIENT_SECRET,
+    refreshToken: ZOHO_REFRESH_TOKEN,
+    portalId:     process.env.ZOHO_PORTAL_ID ?? '',
+    domain:       process.env.ZOHO_DOMAIN    ?? 'zoho.com',
+  }
+}
 
 export async function getZohoAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expires_at - 30_000) {
     return cachedToken.access_token
   }
 
-  const { ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN } = process.env
-  if (!ZOHO_CLIENT_ID || !ZOHO_CLIENT_SECRET || !ZOHO_REFRESH_TOKEN) {
-    throw new Error("Zoho OAuth credentials not configured")
-  }
+  const creds = await getZohoCreds()
+  const tokenUrl = `https://accounts.${creds.domain}/oauth/v2/token`
 
   const params = new URLSearchParams({
-    refresh_token: ZOHO_REFRESH_TOKEN,
-    client_id: ZOHO_CLIENT_ID,
-    client_secret: ZOHO_CLIENT_SECRET,
-    grant_type: "refresh_token",
+    refresh_token: creds.refreshToken,
+    client_id:     creds.clientId,
+    client_secret: creds.clientSecret,
+    grant_type:    'refresh_token',
   })
 
-  const res = await fetch(`${ZOHO_TOKEN_URL}?${params}`, { method: "POST" })
+  const res = await fetch(`${tokenUrl}?${params}`, { method: 'POST' })
   if (!res.ok) throw new Error(`Zoho token refresh failed: ${res.status}`)
 
   const data = await res.json()
@@ -37,7 +85,7 @@ export async function getZohoAccessToken(): Promise<string> {
 
   cachedToken = {
     access_token: data.access_token,
-    expires_at: Date.now() + (data.expires_in ?? 3600) * 1000,
+    expires_at:   Date.now() + (data.expires_in ?? 3600) * 1000,
   }
 
   return cachedToken.access_token
@@ -47,18 +95,33 @@ export async function zohoFetch(
   path: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const token = await getZohoAccessToken()
-  const portalId = process.env.ZOHO_PORTAL_ID ?? ""
+  const [token, creds] = await Promise.all([getZohoAccessToken(), getZohoCreds()])
+  const apiBase = `https://projectsapi.${creds.domain}/restapi`
+  const url = `${apiBase}/portal/${creds.portalId}${path}`
 
-  const url = `${ZOHO_API_BASE}/portal/${portalId}${path}`
   return fetch(url, {
     ...options,
     headers: {
-      Authorization: `Zoho-oauthtoken ${token}`,
-      "Content-Type": "application/json",
+      Authorization:  `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/json',
       ...(options.headers ?? {}),
     },
   })
+}
+
+/**
+ * Returns the portal base URL for use in external links.
+ * e.g. "https://projects.zoho.com/portal/neomniadotnet"
+ */
+export async function getZohoPortalUrl(): Promise<string> {
+  try {
+    const creds = await getZohoCreds()
+    return `https://projects.${creds.domain}/portal/${creds.portalId}`
+  } catch {
+    const domain   = process.env.ZOHO_DOMAIN   ?? 'zoho.com'
+    const portalId = process.env.ZOHO_PORTAL_ID ?? ''
+    return `https://projects.${domain}/portal/${portalId}`
+  }
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
