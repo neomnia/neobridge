@@ -2,7 +2,7 @@ import { FolderKanban, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { serviceApiRepository } from '@/lib/services'
 import { syncVercelTeams, listVercelProjects } from '@/lib/connectors/vercel'
-import { listZohoProjects } from '@/lib/zoho-data'
+import { listZohoProjects, listZohoProjectsWithStatus } from '@/lib/zoho-data'
 import { getZohoPortalUrl, isZohoConfigured } from '@/lib/zoho'
 import { db } from '@/db'
 import { platformConfig } from '@/db/schema'
@@ -38,8 +38,8 @@ async function fetchLinks(): Promise<Record<string, ZohoProjectLink>> {
 }
 
 export default async function ProjectsPmPage() {
-  const [zohoProjects, vercelProjects, links, zohoPortalBaseUrl, zohoConfigured] = await Promise.all([
-    listZohoProjects(),
+  const [{ projects: zohoProjects, isMock, error: syncError }, vercelProjects, links, zohoPortalBaseUrl, zohoConfigured] = await Promise.all([
+    listZohoProjectsWithStatus(),
     fetchVercelProjects(),
     fetchLinks(),
     getZohoPortalUrl(),
@@ -70,6 +70,19 @@ export default async function ProjectsPmPage() {
         </a>
       </div>
 
+      {/* Error banner — API configured but call failing */}
+      {zohoConfigured && syncError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4 text-sm space-y-1">
+          <p><strong>Erreur de synchronisation Zoho</strong> — les données affichées sont des exemples.</p>
+          <p className="font-mono text-xs text-red-700 dark:text-red-400 break-all">{syncError}</p>
+          <p className="text-xs text-red-600 dark:text-red-400">
+            Vérifiez vos credentials dans{' '}
+            <Link href="/admin/api" className="underline underline-offset-2">Admin → API Management → Zoho</Link>
+            {' '}puis cliquez <strong>Verify Key</strong>.
+          </p>
+        </div>
+      )}
+
       {/* Info banner when Zoho not configured */}
       {!zohoConfigured && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-sm space-y-1">
@@ -92,6 +105,7 @@ export default async function ProjectsPmPage() {
         vercelProjects={vercelProjects}
         initialLinks={links}
         zohoPortalBaseUrl={zohoPortalBaseUrl}
+        isMockData={isMock}
       />
     </div>
   )

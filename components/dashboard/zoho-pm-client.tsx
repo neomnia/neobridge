@@ -67,11 +67,13 @@ interface Props {
   initialLinks: Record<string, ZohoProjectLink>
   /** e.g. "https://projects.zoho.com/portal/neomniadotnet" */
   zohoPortalBaseUrl: string
+  /** true when showing placeholder mock data (no real Zoho connection) */
+  isMockData?: boolean
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoPortalBaseUrl }: Props) {
+export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoPortalBaseUrl, isMockData }: Props) {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [links, setLinks] = useState(initialLinks)
@@ -277,14 +279,16 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoP
 
                 {/* Footer links */}
                 <div className="flex items-center gap-2 pt-1 border-t">
-                  <a
-                    href={`${zohoPortalBaseUrl}/projects/${project.id}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Ouvrir dans Zoho
-                  </a>
+                  {!isMockData && (
+                    <a
+                      href={`${zohoPortalBaseUrl}/projects/${project.id}/`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Ouvrir dans Zoho
+                    </a>
+                  )}
                   {link && (
                     <a
                       href={`/dashboard/${link.teamId}/${link.projectId}/zoho`}

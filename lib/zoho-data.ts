@@ -2,8 +2,8 @@
  * Zoho data layer — callable from Server Components directly.
  * Avoids internal fetch() which loses auth cookies.
  * Mock mode: NEXT_PUBLIC_USE_MOCK=true only.
- * Credentials come from DB (Admin → API Management) or env vars — checked
- * inside zohoFetch(). If neither is configured, the catch blocks return mocks.
+ * Credentials come from DB (Admin → API Management) or env vars.
+ * Errors are surfaced (not swallowed) so callers can show diagnostic info.
  */
 import { zohoFetch } from './zoho'
 import type { ZohoProject, ZohoTask, ZohoMilestone } from './zoho'
@@ -46,28 +46,53 @@ const MOCK_MILESTONES: ZohoMilestone[] = [
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function listZohoProjects(): Promise<ZohoProject[]> {
-  if (useMock()) return MOCK_PROJECTS
+/**
+ * Returns projects + optional error message.
+ * On failure, returns mock data so the page always renders,
+ * but exposes the error so the UI can show a diagnostic banner.
+ */
+export async function listZohoProjectsWithStatus(): Promise<{
+  projects: ZohoProject[]
+  isMock: boolean
+  error?: string
+}> {
+  if (useMock()) return { projects: MOCK_PROJECTS, isMock: true }
   try {
     const res = await zohoFetch('/projects/')
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      const msg = `Zoho API HTTP ${res.status}${text ? ': ' + text.slice(0, 200) : ''}`
+      console.error('[zoho-data] listZohoProjects failed:', msg)
+      return { projects: MOCK_PROJECTS, isMock: true, error: msg }
+    }
     const data = await res.json()
-    const projects = data.projects ?? []
-    return projects.length > 0 ? projects : MOCK_PROJECTS
-  } catch {
-    return MOCK_PROJECTS
+    const projects: ZohoProject[] = data.projects ?? []
+    if (projects.length === 0) {
+      // Empty portal or wrong portalId — still real, not mock
+      return { projects: [], isMock: false }
+    }
+    return { projects, isMock: false }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[zoho-data] listZohoProjects exception:', msg)
+    return { projects: MOCK_PROJECTS, isMock: true, error: msg }
   }
 }
 
+/** Backward-compatible wrapper — returns projects array only */
+export async function listZohoProjects(): Promise<ZohoProject[]> {
+  const { projects } = await listZohoProjectsWithStatus()
+  return projects
+}
+
 export async function getZohoProject(projectId: string): Promise<ZohoProject | null> {
-  if (useMock()) {
-    return MOCK_PROJECTS.find(p => p.id === projectId) ?? MOCK_PROJECTS[0] ?? null
-  }
+  if (useMock()) return MOCK_PROJECTS.find(p => p.id === projectId) ?? MOCK_PROJECTS[0] ?? null
   try {
     const res = await zohoFetch(`/projects/${projectId}/`)
     const data = await res.json()
-    return data.projects?.[0] ?? MOCK_PROJECTS.find(p => p.id === projectId) ?? null
+    return data.projects?.[0] ?? null
   } catch {
-    return MOCK_PROJECTS.find(p => p.id === projectId) ?? MOCK_PROJECTS[0] ?? null
+    return MOCK_PROJECTS.find(p => p.id === projectId) ?? null
   }
 }
 
@@ -76,8 +101,7 @@ export async function listZohoTasks(projectId: string): Promise<ZohoTask[]> {
   try {
     const res = await zohoFetch(`/projects/${projectId}/tasks/`)
     const data = await res.json()
-    const tasks = data.tasks ?? []
-    return tasks.length > 0 ? tasks : MOCK_TASKS
+    return data.tasks ?? []
   } catch {
     return MOCK_TASKS
   }
@@ -88,8 +112,7 @@ export async function listZohoMilestones(projectId: string): Promise<ZohoMilesto
   try {
     const res = await zohoFetch(`/projects/${projectId}/milestones/`)
     const data = await res.json()
-    const milestones = data.milestones ?? []
-    return milestones.length > 0 ? milestones : MOCK_MILESTONES
+    return data.milestones ?? []
   } catch {
     return MOCK_MILESTONES
   }
