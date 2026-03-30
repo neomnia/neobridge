@@ -33,6 +33,7 @@ import {
   MessageCircle,
   LayoutGrid,
   ScrollText,
+  KanbanSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -44,7 +45,7 @@ import { toast } from "sonner"
 import { useUser } from "@/lib/contexts/user-context"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
 
-const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods", "new", "projects", "deployments", "logs", "costs"])
+const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods", "new", "projects", "deployments", "logs", "costs", "projects-pm"])
 
 interface ActiveProject {
   teamId: string
@@ -78,10 +79,11 @@ const projectSubItems = [
 ]
 
 const globalNavItems = [
-  { name: "Projets",       href: "/dashboard/projects",     icon: LayoutGrid  },
-  { name: "Déploiements",  href: "/dashboard/deployments",  icon: Rocket      },
-  { name: "Logs",          href: "/dashboard/logs",         icon: ScrollText  },
-  { name: "Coûts",         href: "/dashboard/costs",        icon: DollarSign  },
+  { name: "Projets",       href: "/dashboard/projects",     icon: LayoutGrid    },
+  { name: "Gestion PM",    href: "/dashboard/projects-pm",  icon: KanbanSquare  },
+  { name: "Déploiements",  href: "/dashboard/deployments",  icon: Rocket        },
+  { name: "Logs",          href: "/dashboard/logs",         icon: ScrollText    },
+  { name: "Coûts",         href: "/dashboard/costs",        icon: DollarSign    },
 ]
 
 const profileSubItems = [
