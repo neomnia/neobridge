@@ -1,8 +1,8 @@
-import { FolderKanban, ExternalLink } from 'lucide-react'
+import { FolderKanban, ExternalLink, AlertTriangle, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { serviceApiRepository } from '@/lib/services'
 import { syncVercelTeams, listVercelProjects } from '@/lib/connectors/vercel'
-import { listZohoProjects, listZohoProjectsWithStatus } from '@/lib/zoho-data'
+import { listZohoProjectsWithStatus } from '@/lib/zoho-data'
 import { getZohoPortalUrl, isZohoConfigured } from '@/lib/zoho'
 import type { ZohoProject } from '@/lib/zoho'
 import { db } from '@/db'
@@ -40,21 +40,63 @@ async function fetchLinks(): Promise<Record<string, ZohoProjectLink>> {
 }
 
 export default async function ProjectsPmPage() {
+  // Check credentials FIRST — no need to hit Zoho API if nothing is configured
+  const zohoConfigured = await isZohoConfigured().catch(() => false)
+
+  if (!zohoConfigured) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <FolderKanban className="h-7 w-7 text-violet-500" />
+          <div>
+            <h1 className="text-2xl font-bold">Gestion de projets</h1>
+            <p className="text-muted-foreground text-sm mt-0.5">Synchronisation Zoho Projects</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div className="space-y-3">
+              <div>
+                <p className="font-semibold text-amber-900 dark:text-amber-200">Connexion Zoho non configurée</p>
+                <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
+                  Les credentials Zoho sont absents. Configurez la connexion OAuth pour synchroniser vos projets.
+                </p>
+              </div>
+              <ol className="text-sm text-amber-800 dark:text-amber-300 space-y-1 list-decimal list-inside">
+                <li>Aller dans <strong>Admin → API Management → Zoho</strong></li>
+                <li>Saisir le <strong>Client ID</strong>, <strong>Client Secret</strong> et <strong>Portal ID</strong></li>
+                <li>Cliquer <strong>"Enregistrer et connecter"</strong> pour lancer le flow OAuth</li>
+              </ol>
+              <Link
+                href="/admin/api"
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-sm font-medium transition-colors"
+              >
+                <Settings className="h-4 w-4" />
+                Configurer Zoho
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Credentials are present — load data in parallel
   let zohoProjects: ZohoProject[] = []
-  let isMock = true
+  let isMock = false
   let syncError: string | undefined
   let vercelProjects: Awaited<ReturnType<typeof fetchVercelProjects>> = []
   let links: Record<string, ZohoProjectLink> = {}
   let zohoPortalBaseUrl = 'https://projects.zoho.com'
-  let zohoConfigured = false
 
   try {
-    ;[{ projects: zohoProjects, isMock, error: syncError }, vercelProjects, links, zohoPortalBaseUrl, zohoConfigured] = await Promise.all([
+    ;[{ projects: zohoProjects, isMock, error: syncError }, vercelProjects, links, zohoPortalBaseUrl] = await Promise.all([
       listZohoProjectsWithStatus(),
       fetchVercelProjects(),
       fetchLinks(),
       getZohoPortalUrl(),
-      isZohoConfigured(),
     ])
   } catch (err) {
     console.error('[projects-pm] Fatal page error:', err)
@@ -85,32 +127,18 @@ export default async function ProjectsPmPage() {
         </a>
       </div>
 
-      {/* Error banner — API configured but call failing */}
-      {zohoConfigured && syncError && (
+      {/* Error banner — credentials present but API call failing */}
+      {syncError && (
         <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4 text-sm space-y-1">
-          <p><strong>Erreur de synchronisation Zoho</strong> — les données affichées sont des exemples.</p>
-          <p className="font-mono text-xs text-red-700 dark:text-red-400 break-all">{syncError}</p>
-          <p className="text-xs text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+            <p className="font-semibold text-red-800 dark:text-red-200">Erreur de synchronisation Zoho</p>
+          </div>
+          <p className="font-mono text-xs text-red-700 dark:text-red-400 break-all pl-6">{syncError}</p>
+          <p className="text-xs text-red-600 dark:text-red-400 pl-6">
             Vérifiez vos credentials dans{' '}
             <Link href="/admin/api" className="underline underline-offset-2">Admin → API Management → Zoho</Link>
-            {' '}puis cliquez <strong>Verify Key</strong>.
-          </p>
-        </div>
-      )}
-
-      {/* Info banner when Zoho not configured */}
-      {!zohoConfigured && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-sm space-y-1">
-          <p><strong>Mode démonstration</strong> — credentials Zoho absents.</p>
-          <p>
-            Configurez votre connexion dans{' '}
-            <Link href="/admin/api" className="underline underline-offset-2 text-amber-700 dark:text-amber-400">
-              Admin → API Management → Zoho
-            </Link>
-            {' '}avec : Client ID · Client Secret · Refresh Token · Portal ID (<code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">neomniadotnet</code>).
-          </p>
-          <p className="text-amber-600 dark:text-amber-400 text-xs">
-            Cliquez "Verify Key" après saisie pour valider la connexion avant de sauvegarder.
+            {' '}puis relancez le flow OAuth.
           </p>
         </div>
       )}
