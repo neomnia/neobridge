@@ -86,12 +86,19 @@ export async function GET(request: NextRequest) {
 
   // Save full config to DB
   try {
-    await serviceApiRepository.saveConfig('zoho', 'production', {
-      clientId:     pending.clientId,
-      clientSecret: pending.clientSecret,
-      refreshToken: tokenData.refresh_token,
-      portalId:     pending.portalId ?? '',
-      domain:       `zoho.${pending.domain}`,
+    await serviceApiRepository.upsertConfig({
+      serviceName:  'zoho',
+      serviceType:  'neobridge',
+      environment:  'production',
+      isActive:     true,
+      isDefault:    true,
+      config: {
+        clientId:     pending.clientId,
+        clientSecret: pending.clientSecret,
+        refreshToken: tokenData.refresh_token,
+        portalId:     pending.portalId ?? '',
+        domain:       `zoho.${pending.domain}`,
+      },
     })
   } catch (err) {
     console.error('[zoho-callback] Failed to save config to DB:', err)
