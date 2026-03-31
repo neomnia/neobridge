@@ -8,6 +8,9 @@ import {
   Users,
   LayoutDashboard,
   FolderOpen,
+  FolderKanban,
+  Layers,
+  ScrollText,
   Settings,
   Server,
   Shield,
@@ -79,15 +82,18 @@ function resolveNav(pathname: string): NavState {
 // ---------------------------------------------------------------------------
 
 const GLOBAL_ITEMS: NavItem[] = [
-  { name: "API Management", href: "/admin/api",   icon: Key },
-  { name: "Teams",          href: "/admin/teams", icon: Users },
+  { name: "Gestion de projets", href: "/dashboard/projects-pm", icon: FolderKanban },
+  { name: "Déploiements",       href: "/dashboard/deployments", icon: Layers },
+  { name: "Logs",               href: "/dashboard/logs",        icon: ScrollText },
+  { name: "API Management",     href: "/admin/api",             icon: Key },
+  { name: "Teams",              href: "/admin/teams",           icon: Users },
 ]
 
 function teamItems(teamId: string): NavItem[] {
   return [
-    { name: "Panoptique", href: `/dashboard/${teamId}`,            icon: LayoutDashboard },
-    { name: "Projets",    href: `/dashboard/${teamId}`,            icon: FolderOpen },
-    { name: "Paramètres", href: `/dashboard/${teamId}/settings`,   icon: Settings },
+    { name: "Panoptique",    href: `/dashboard/${teamId}`,          icon: LayoutDashboard },
+    { name: "Nouveau projet", href: `/dashboard/${teamId}/new`,     icon: FolderOpen },
+    { name: "Paramètres",    href: `/dashboard/${teamId}/settings`, icon: Settings },
   ]
 }
 
