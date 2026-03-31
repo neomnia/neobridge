@@ -2,6 +2,9 @@ import { Badge } from '@/components/ui/badge'
 import { serviceApiRepository } from '@/lib/services'
 import { syncVercelTeams, listVercelProjects } from '@/lib/connectors/vercel'
 
+export const dynamic = 'force-dynamic'
+export const maxDuration = 30
+
 const DEPLOY_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   READY:    'default',
   ERROR:    'destructive',
@@ -49,7 +52,10 @@ export default async function ProjectLayout({
   params: Promise<{ teamId: string; projectId: string }>
 }) {
   const { teamId, projectId } = await params
-  const meta = await fetchProjectMeta(teamId, projectId)
+  const meta = await Promise.race([
+    fetchProjectMeta(teamId, projectId),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+  ])
 
   const displayName = meta?.name ?? projectId
   const deployState = meta?.deployState ?? null

@@ -20,8 +20,10 @@ export const maxDuration = 30
 export default async function PrivateLayout({ children }: { children: React.ReactNode }) {
   // Verify authentication - redirects to login if not authenticated
   const user = await requireAuth()
-  const platformConfig = await getPlatformConfig()
-  const userIsAdmin = await isAdmin(user.userId)
+  const [platformConfig, userIsAdmin] = await Promise.all([
+    getPlatformConfig(),
+    isAdmin(user.userId),
+  ])
 
   // Check maintenance mode - redirect non-admin users to maintenance page
   if (platformConfig.maintenanceMode) {
