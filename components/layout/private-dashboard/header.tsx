@@ -15,7 +15,6 @@ import { ThemeToggle } from "@/components/common/theme-toggle"
 import { NotificationBell } from "@/components/admin/notification-bell"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
 import { useCart } from "@/contexts/cart-context"
@@ -39,7 +38,6 @@ interface PrivateHeaderProps {
 }
 
 export function PrivateHeader({ onMenuClick }: PrivateHeaderProps) {
-  const router = useRouter()
   const { logo, siteName } = usePlatformConfig()
   const { itemCount } = useCart()
   const [user, setUser] = useState<UserData | null>(null)
@@ -198,14 +196,12 @@ export function PrivateHeader({ onMenuClick }: PrivateHeaderProps) {
                 <div className="p-4 text-center text-sm text-muted-foreground">Searching...</div>
               ) : searchResults.length > 0 ? (
                 <div className="py-2">
-                  {searchResults.map((result, index) => (
-                    <button
-                      key={result.path}
-                      onClick={() => {
-                        router.push(result.path)
-                        setSearchQuery("")
-                      }}
-                      className="w-full px-4 py-3 text-left hover:bg-muted transition-colors flex items-start gap-3 border-b last:border-b-0 border-border/50"
+                  {searchResults.map((result) => (
+                    <Link
+                      key={result.path + result.name}
+                      href={result.path}
+                      onClick={() => setSearchQuery("")}
+                      className="block w-full px-4 py-3 text-left hover:bg-muted transition-colors flex items-start gap-3 border-b last:border-b-0 border-border/50"
                     >
                       <Search className="h-4 w-4 text-brand mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -217,7 +213,7 @@ export function PrivateHeader({ onMenuClick }: PrivateHeaderProps) {
                         </div>
                         <div className="text-xs text-muted-foreground truncate">{result.path}</div>
                       </div>
-                    </button>
+                    </Link>
                   ))}
                 </div>
               ) : (
