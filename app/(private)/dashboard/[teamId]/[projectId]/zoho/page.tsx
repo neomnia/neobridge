@@ -7,7 +7,7 @@ import {
   listZohoMilestones,
   listZohoStatuses,
 } from '@/lib/zoho-data'
-import { getZohoPortalUrl } from '@/lib/zoho'
+import { getZohoPortalUrl, zohoUiUrl } from '@/lib/zoho'
 import { KanbanBoard } from '@/components/neobridge/kanban/KanbanBoard'
 import { BarChart3, ExternalLink, Link2Off, Milestone } from 'lucide-react'
 import Link from 'next/link'
@@ -90,7 +90,7 @@ export default async function ZohoPage({
           </div>
         </div>
         <a
-          href={portalBaseUrl}
+          href={zohoUiUrl(portalBaseUrl, link.zohoProjectId, 'tasks')}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors border rounded-lg px-3 py-2 whitespace-nowrap shrink-0"

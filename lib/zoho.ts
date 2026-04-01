@@ -108,11 +108,10 @@ export async function zohoFetch(
   path: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  // getZohoAccessToken already calls getZohoCreds() internally; call creds
-  // separately only to get domain+portalId (token is cached after first call)
   const creds = await getZohoCreds()
   const token = await getZohoAccessToken()
-  const apiBase = `https://projectsapi.${creds.domain}/restapi`
+  // V3 API — old /restapi/ endpoint was deprecated Dec 31 2025
+  const apiBase = `https://projectsapi.${creds.domain}/api/v3`
   const url = `${apiBase}/portal/${creds.portalId}${path}`
 
   return fetch(url, {
@@ -123,6 +122,20 @@ export async function zohoFetch(
       ...(options.headers ?? {}),
     },
   })
+}
+
+/**
+ * Returns the browser UI URL for a Zoho Projects resource.
+ * Uses the hash-based routing format: #zp/projects/{id}/{section}
+ */
+export function zohoUiUrl(
+  portalBaseUrl: string,
+  zohoProjectId: string,
+  section: 'tasks' | 'dashboard' | 'milestones' | 'bugs' = 'tasks',
+  taskId?: string
+): string {
+  const base = `${portalBaseUrl}#zp/projects/${zohoProjectId}/${section}/`
+  return taskId ? `${base}${taskId}` : base
 }
 
 /**

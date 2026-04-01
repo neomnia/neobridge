@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
         const cfg = await serviceApiRepository.getConfig('zoho', 'production')
         const domain = (cfg?.config as any)?.domain ?? process.env.ZOHO_DOMAIN ?? 'zoho.com'
         const token = await getZohoAccessToken()
-        const res = await fetch(`https://projectsapi.${domain}/restapi/portals/`, {
+        const res = await fetch(`https://projectsapi.${domain}/api/v3/portals/`, {
           headers: { Authorization: `Zoho-oauthtoken ${token}` },
         })
         const data = await res.json()
@@ -147,11 +147,9 @@ export async function PUT(req: NextRequest) {
   try {
     if (action === "updateTask") {
       const body = await req.json()
-      const params = new URLSearchParams(body)
       const res = await zohoFetch(`/projects/${projectId}/tasks/${taskId}/`, {
-        method: "POST", // Zoho uses POST for updates via form params
-        body: params,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        method: "PUT",
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       return NextResponse.json(data)
@@ -182,24 +180,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Zoho Projects API uses form-encoded POST for creates
-    const encode = (obj: Record<string, string>) => new URLSearchParams(obj).toString()
-
     switch (action) {
       case "createTask": {
         if (!projectId || !body.name) return NextResponse.json({ error: "projectId and name required" }, { status: 400 })
-        const params = encode({
-          name: body.name,
-          ...(body.status_id    && { status_id: body.status_id }),
-          ...(body.priority     && { priority:   body.priority }),
-          ...(body.description  && { description: body.description }),
-          ...(body.milestone_id && { milestone_id: body.milestone_id }),
-          ...(body.person_responsible && { person_responsible: body.person_responsible }),
-          ...(body.end_date     && { end_date: body.end_date }),
-        })
+        const payload: Record<string, string> = { name: body.name }
+        if (body.status_id)          payload.status_id          = body.status_id
+        if (body.priority)           payload.priority           = body.priority
+        if (body.description)        payload.description        = body.description
+        if (body.milestone_id)       payload.milestone_id       = body.milestone_id
+        if (body.person_responsible) payload.person_responsible = body.person_responsible
+        if (body.end_date)           payload.end_date           = body.end_date
         const res = await zohoFetch(`/projects/${projectId}/tasks/`, {
-          method: "POST", body: params,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          method: "POST",
+          body: JSON.stringify(payload),
         })
         const data = await res.json()
         return NextResponse.json(data)
@@ -207,60 +200,53 @@ export async function POST(req: NextRequest) {
       case "updateTask": {
         const taskId = searchParams.get("taskId")
         if (!projectId || !taskId) return NextResponse.json({ error: "projectId and taskId required" }, { status: 400 })
-        const params = encode(Object.fromEntries(Object.entries(body).map(([k, v]) => [k, String(v)])))
         const res = await zohoFetch(`/projects/${projectId}/tasks/${taskId}/`, {
-          method: "POST", body: params,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          method: "PUT",
+          body: JSON.stringify(body),
         })
         const data = await res.json()
         return NextResponse.json(data)
       }
       case "createBug": {
         if (!projectId || !body.title) return NextResponse.json({ error: "projectId and title required" }, { status: 400 })
-        const params = encode({
-          title: body.title,
-          ...(body.description   && { description:   body.description }),
-          ...(body.severity      && { severity:       body.severity }),
-          ...(body.classification && { classification: body.classification }),
-          ...(body.assignee      && { assignee:       body.assignee }),
-          ...(body.due_date      && { due_date:       body.due_date }),
-        })
+        const payload: Record<string, string> = { title: body.title }
+        if (body.description)    payload.description    = body.description
+        if (body.severity)       payload.severity       = body.severity
+        if (body.classification) payload.classification = body.classification
+        if (body.assignee)       payload.assignee       = body.assignee
+        if (body.due_date)       payload.due_date       = body.due_date
         const res = await zohoFetch(`/projects/${projectId}/bugs/`, {
-          method: "POST", body: params,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          method: "POST",
+          body: JSON.stringify(payload),
         })
         const data = await res.json()
         return NextResponse.json(data)
       }
       case "createMilestone": {
         if (!projectId || !body.name) return NextResponse.json({ error: "projectId and name required" }, { status: 400 })
-        const params = encode({
-          name: body.name,
-          ...(body.end_date  && { end_date:  body.end_date }),
-          ...(body.start_date && { start_date: body.start_date }),
-          ...(body.flag      && { flag:       body.flag }),
-          ...(body.owner     && { owner:      body.owner }),
-        })
+        const payload: Record<string, string> = { name: body.name }
+        if (body.end_date)   payload.end_date   = body.end_date
+        if (body.start_date) payload.start_date = body.start_date
+        if (body.flag)       payload.flag       = body.flag
+        if (body.owner)      payload.owner      = body.owner
         const res = await zohoFetch(`/projects/${projectId}/milestones/`, {
-          method: "POST", body: params,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          method: "POST",
+          body: JSON.stringify(payload),
         })
         const data = await res.json()
         return NextResponse.json(data)
       }
       case "createProject": {
         if (!body.name) return NextResponse.json({ error: "name required" }, { status: 400 })
-        const params = encode({
-          name: body.name,
-          ...(body.description && { description: body.description }),
-          ...(body.start_date  && { start_date:  body.start_date }),
-          ...(body.end_date    && { end_date:     body.end_date }),
-          ...(body.owner       && { owner:        body.owner }),
-          ...(body.template_id && { template_id:  body.template_id }),
-        })
+        const payload: Record<string, string> = { name: body.name }
+        if (body.description) payload.description = body.description
+        if (body.start_date)  payload.start_date  = body.start_date
+        if (body.end_date)    payload.end_date     = body.end_date
+        if (body.owner)       payload.owner        = body.owner
+        if (body.template_id) payload.template_id  = body.template_id
         const res = await zohoFetch(`/projects/`, {
-          method: "POST", body: params,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          method: "POST",
+          body: JSON.stringify(payload),
         })
         const data = await res.json()
         return NextResponse.json(data)

@@ -19,7 +19,7 @@ import {
   Calendar, Percent, User, Tag, AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { type ZohoTask, type ZohoStatus } from "@/lib/zoho"
+import { type ZohoTask, type ZohoStatus, zohoUiUrl } from "@/lib/zoho"
 import type { ZohoMilestone } from "@/lib/zoho"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -184,10 +184,12 @@ function TaskEditDialog({
       if (zohoDate) body.due_date = zohoDate
       if (description !== task.description) body.description = description
 
+      if (status !== task.status.name) body.status = status
+
       const res = await fetch(
         `/api/zoho?action=updateTask&projectId=${zohoProjectId}&taskId=${task.id}`,
         {
-          method: "POST",
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         }
@@ -195,18 +197,6 @@ function TaskEditDialog({
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? `HTTP ${res.status}`)
-      }
-
-      // If status changed, use the PUT endpoint (Zoho sometimes needs separate status call)
-      if (status !== task.status.name) {
-        await fetch(
-          `/api/zoho?action=updateTask&projectId=${zohoProjectId}&taskId=${task.id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status }),
-          }
-        )
       }
 
       const updated: ZohoTask = {
@@ -384,7 +374,7 @@ function TaskEditDialog({
             </Button>
             {portalBaseUrl && (
               <Button variant="outline" size="icon" asChild title="Ouvrir dans Zoho">
-                <a href={`${portalBaseUrl}/tasks/`} target="_blank" rel="noopener noreferrer">
+                <a href={zohoUiUrl(portalBaseUrl, zohoProjectId, 'tasks', task.id)} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4" />
                 </a>
               </Button>
