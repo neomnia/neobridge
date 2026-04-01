@@ -1,0 +1,285 @@
+/**
+ * /dashboard/api-keys — Vue des services NeoBridge
+ *
+ * Accessible à tous les utilisateurs authentifiés (pas uniquement les admins).
+ * - Non-admins : statut de connexion en lecture seule
+ * - Admins : même vue + bouton "Configurer" vers /admin/api
+ *
+ * Seule la catégorie NeoBridge (agents, DevOps, infrastructure) est exposée ici.
+ * Les services purement admin (Paiement, Email, OAuth) restent dans /admin/api.
+ */
+
+import Link from 'next/link'
+import { requireAuth, isAdmin } from '@/lib/auth/server'
+import { serviceApiRepository } from '@/lib/services'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Key,
+  CheckCircle2,
+  XCircle,
+  ExternalLink,
+  Settings2,
+  Zap,
+} from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
+export const metadata = { title: 'APIs NeoBridge' }
+
+// ─── Catalogue NeoBridge ────────────────────────────────────────────────────
+
+const NEOBRIDGE_SERVICES = [
+  {
+    id: 'anthropic',
+    name: 'Anthropic (Claude)',
+    description: 'Agent Dev — génération de code, commits, PRs',
+    category: '🤖 Agents IA',
+    docs: 'https://docs.anthropic.com',
+  },
+  {
+    id: 'mistral',
+    name: 'Mistral',
+    description: 'Agent PM — orchestration, priorisation backlog',
+    category: '🤖 Agents IA',
+    docs: 'https://docs.mistral.ai',
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI (GPT-4)',
+    description: 'Agent QA — revue de PR, analyse qualité',
+    category: '🤖 Agents IA',
+    docs: 'https://platform.openai.com/docs',
+  },
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    description: 'Vision & multimodal — analyse d\'images et documents',
+    category: '🤖 Agents IA',
+    docs: 'https://ai.google.dev/docs',
+  },
+  {
+    id: 'perplexity',
+    name: 'Perplexity',
+    description: 'Recherche web IA en temps réel',
+    category: '🤖 Agents IA',
+    docs: 'https://docs.perplexity.ai',
+  },
+  {
+    id: 'vercel',
+    name: 'Vercel',
+    description: 'Déploiements, projets, env vars, logs',
+    category: '🚀 Infrastructure',
+    docs: 'https://vercel.com/docs/rest-api',
+  },
+  {
+    id: 'github_token',
+    name: 'GitHub Token',
+    description: 'Accès repos, branches, PRs (PAT)',
+    category: '🚀 Infrastructure',
+    docs: 'https://docs.github.com/en/authentication',
+  },
+  {
+    id: 'railway',
+    name: 'Railway',
+    description: 'Déploiement services backend & MCP servers',
+    category: '🚀 Infrastructure',
+    docs: 'https://docs.railway.app',
+  },
+  {
+    id: 'neon',
+    name: 'Neon',
+    description: 'Console API — monitoring des bases de données',
+    category: '🚀 Infrastructure',
+    docs: 'https://neon.tech/docs/reference/api-reference',
+  },
+  {
+    id: 'zoho',
+    name: 'Zoho Projects',
+    description: 'Tâches, jalons, bugs, kanban (OAuth2)',
+    category: '📋 Project Management',
+    docs: 'https://www.zoho.com/projects/help/rest-api/zohoprojectsapi.html',
+  },
+  {
+    id: 'notion',
+    name: 'Notion',
+    description: 'Documentation & specs — lecture des pages projet',
+    category: '📋 Project Management',
+    docs: 'https://developers.notion.com',
+  },
+  {
+    id: 'temporal',
+    name: 'Temporal',
+    description: 'Orchestration workflows agents durables',
+    category: '⚙️ Orchestration',
+    docs: 'https://docs.temporal.io',
+  },
+  {
+    id: 'cloudflare',
+    name: 'Cloudflare',
+    description: 'DNS, CDN, zones — gestion des domaines',
+    category: '🌐 Domaines',
+    docs: 'https://developers.cloudflare.com/api',
+  },
+  {
+    id: 'openprovider',
+    name: 'OpenProvider',
+    description: 'Registrar — achat et gestion de domaines',
+    category: '🌐 Domaines',
+    docs: 'https://docs.openprovider.com',
+  },
+  {
+    id: 'internetbs',
+    name: 'Internet.bs',
+    description: 'Registrar alternatif — gestion de domaines',
+    category: '🌐 Domaines',
+    docs: 'https://internetbs.net/en/domain-names/api',
+  },
+] as const
+
+type ServiceId = (typeof NEOBRIDGE_SERVICES)[number]['id']
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** Groups services by category preserving order */
+function groupByCategory(services: typeof NEOBRIDGE_SERVICES) {
+  const map = new Map<string, typeof NEOBRIDGE_SERVICES[number][]>()
+  for (const s of services) {
+    if (!map.has(s.category)) map.set(s.category, [])
+    map.get(s.category)!.push(s)
+  }
+  return map
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+export default async function ApiKeysPage() {
+  const user = await requireAuth()
+  const userIsAdmin = await isAdmin(user.userId)
+
+  // Fetch status for every NeoBridge service
+  const statusMap = new Map<ServiceId, boolean>()
+  await Promise.all(
+    NEOBRIDGE_SERVICES.map(async (svc) => {
+      try {
+        const cfg = await serviceApiRepository.getConfig(svc.id as any, 'production')
+        statusMap.set(svc.id, !!cfg?.isActive)
+      } catch {
+        statusMap.set(svc.id, false)
+      }
+    })
+  )
+
+  const configuredCount = [...statusMap.values()].filter(Boolean).length
+  const groups = groupByCategory(NEOBRIDGE_SERVICES)
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Key className="h-7 w-7 text-brand" />
+          <div>
+            <h1 className="text-2xl font-bold">APIs NeoBridge</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {configuredCount}/{NEOBRIDGE_SERVICES.length} services connectés
+            </p>
+          </div>
+        </div>
+        {userIsAdmin && (
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link href="/admin/api">
+              <Settings2 className="h-4 w-4" />
+              Configurer les clés
+            </Link>
+          </Button>
+        )}
+      </div>
+
+      {/* ── Barre de progression ─────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card p-4">
+        <div className="flex items-center justify-between mb-2 text-sm">
+          <span className="font-medium">Couverture des services</span>
+          <span className="text-muted-foreground">
+            {Math.round((configuredCount / NEOBRIDGE_SERVICES.length) * 100)}%
+          </span>
+        </div>
+        <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-brand transition-all"
+            style={{ width: `${(configuredCount / NEOBRIDGE_SERVICES.length) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {/* ── Grille par catégorie ──────────────────────────────────────── */}
+      {[...groups.entries()].map(([category, services]) => (
+        <div key={category}>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-3 px-0.5">
+            {category}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {services.map((svc) => {
+              const active = statusMap.get(svc.id) ?? false
+              return (
+                <div
+                  key={svc.id}
+                  className="rounded-xl border bg-card p-4 flex items-start gap-3 hover:border-brand/40 transition-colors"
+                >
+                  {/* Status indicator */}
+                  <div className="mt-0.5 shrink-0">
+                    {active ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-muted-foreground/50" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{svc.name}</span>
+                      <Badge
+                        variant={active ? 'default' : 'outline'}
+                        className="text-[10px] px-1.5 py-0"
+                      >
+                        {active ? 'Connecté' : 'Non configuré'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      {svc.description}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <a
+                      href={svc.docs}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      title="Documentation"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                    {userIsAdmin && (
+                      <Link href="/admin/api" title="Configurer">
+                        <Zap className="h-3.5 w-3.5 text-muted-foreground hover:text-brand transition-colors" />
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* ── Bandeau info non-admin ────────────────────────────────────── */}
+      {!userIsAdmin && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4 text-sm text-blue-700 dark:text-blue-300">
+          <strong>Vue lecture seule.</strong> Pour configurer les clés API, contactez un administrateur.
+        </div>
+      )}
+    </div>
+  )
+}

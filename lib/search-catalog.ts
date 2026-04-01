@@ -415,6 +415,67 @@ export const configPages: SearchElement[] = [
 ]
 
 /**
+ * NeoBridge — pages accessibles aux utilisateurs authentifiés (pas admin requis)
+ */
+export const neobridgePages: SearchElement[] = [
+  {
+    name: "APIs NeoBridge",
+    path: "/dashboard/api-keys",
+    category: "NeoBridge",
+    section: "dashboard",
+    keywords: ["api", "keys", "anthropic", "mistral", "vercel", "zoho", "notion", "github", "railway", "temporal", "cloudflare", "neon", "services", "connexion"],
+    description: "Statut des services NeoBridge connectés",
+    requiresAuth: true,
+  },
+  {
+    name: "Gestion de projets PM",
+    path: "/dashboard/projects-pm",
+    category: "NeoBridge",
+    section: "dashboard",
+    keywords: ["zoho", "projets", "kanban", "pm", "gestion", "tâches", "milestones", "vercel"],
+    description: "Vue globale Zoho Projects + liaisons Vercel",
+    requiresAuth: true,
+  },
+  {
+    name: "Déploiements",
+    path: "/dashboard/deployments",
+    category: "NeoBridge",
+    section: "dashboard",
+    keywords: ["deploy", "déploiement", "vercel", "ci", "cd", "production", "preview"],
+    description: "Historique des déploiements Vercel",
+    requiresAuth: true,
+  },
+  {
+    name: "Logs",
+    path: "/dashboard/logs",
+    category: "NeoBridge",
+    section: "dashboard",
+    keywords: ["logs", "journal", "erreurs", "debug", "monitoring", "runtime"],
+    description: "Logs runtime des projets",
+    requiresAuth: true,
+  },
+  {
+    name: "Coûts & Services",
+    path: "/dashboard/costs",
+    category: "NeoBridge",
+    section: "dashboard",
+    keywords: ["coûts", "budget", "facturation", "vercel", "neon", "railway", "api"],
+    description: "Suivi des coûts infrastructure",
+    requiresAuth: true,
+  },
+  {
+    name: "Teams",
+    path: "/admin/teams",
+    category: "NeoBridge",
+    section: "admin",
+    keywords: ["teams", "équipes", "membres", "workspaces", "organisation"],
+    description: "Gestion des équipes et workspaces",
+    requiresAuth: true,
+    requiresAdmin: true,
+  },
+]
+
+/**
  * Documentation (accessible according to configuration)
  */
 export const documentationPages: SearchElement[] = [
@@ -467,6 +528,7 @@ export function getFullSearchCatalog(): SearchElement[] {
   return [
     ...frontendPages,
     ...dashboardPages,
+    ...neobridgePages,
     ...adminPages,
     ...productsPages,
     ...settingsPages,

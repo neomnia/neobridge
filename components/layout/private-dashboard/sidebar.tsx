@@ -41,6 +41,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { useUser } from "@/lib/contexts/user-context"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
@@ -79,11 +80,12 @@ const projectSubItems = [
 ]
 
 const globalNavItems = [
-  { name: "Projets",       href: "/dashboard/projects",     icon: LayoutGrid    },
-  { name: "Gestion PM",    href: "/dashboard/projects-pm",  icon: KanbanSquare  },
-  { name: "Déploiements",  href: "/dashboard/deployments",  icon: Rocket        },
-  { name: "Logs",          href: "/dashboard/logs",         icon: ScrollText    },
-  { name: "Coûts",         href: "/dashboard/costs",        icon: DollarSign    },
+  { name: "Projets",        href: "/dashboard/projects",    icon: LayoutGrid    },
+  { name: "Gestion PM",     href: "/dashboard/projects-pm", icon: KanbanSquare  },
+  { name: "Déploiements",   href: "/dashboard/deployments", icon: Rocket        },
+  { name: "Logs",           href: "/dashboard/logs",        icon: ScrollText    },
+  { name: "Coûts",          href: "/dashboard/costs",       icon: DollarSign    },
+  { name: "APIs NeoBridge", href: "/dashboard/api-keys",    icon: Key           },
 ]
 
 const profileSubItems = [
@@ -130,8 +132,14 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
   )
   const [isCollapsed, setIsCollapsed] = useState(false)
 
+  const [adminSearch, setAdminSearch] = useState("")
+
   const logoInitials = siteName.substring(0, 2).toUpperCase()
-  const visibleAdminItems = adminItems.filter(item => !item.superAdminOnly || isSuperAdmin)
+  const visibleAdminItems = adminItems.filter(item => {
+    if (item.superAdminOnly && !isSuperAdmin) return false
+    if (!adminSearch) return true
+    return item.name.toLowerCase().includes(adminSearch.toLowerCase())
+  })
 
   const handleLinkClick = () => { if (onClose) onClose() }
 
@@ -339,6 +347,16 @@ export function PrivateSidebar({ isOpen = false, onClose }: PrivateSidebarProps)
                     <ChevronDown className={cn("h-4 w-4 transition-transform", isAdminOpen && "rotate-180")} />
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-1 space-y-1 pl-6">
+                    {/* Recherche rapide admin */}
+                    <div className="relative mb-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <Input
+                        value={adminSearch}
+                        onChange={e => setAdminSearch(e.target.value)}
+                        placeholder="Rechercher…"
+                        className="h-7 pl-7 pr-2 text-xs rounded-md"
+                      />
+                    </div>
                     <Link href="/admin" onClick={handleLinkClick}
                       className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                         pathname === "/admin" ? "bg-brand text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
