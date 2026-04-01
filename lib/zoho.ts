@@ -112,7 +112,7 @@ export async function zohoFetch(
   const token = await getZohoAccessToken()
   // V3 API — old /restapi/ endpoint was deprecated Dec 31 2025
   const apiBase = `https://projectsapi.${creds.domain}/api/v3`
-  const url = `${apiBase}/portal/${creds.portalId}${path}`
+  const url = `${apiBase}/portals/${creds.portalId}${path}`
 
   return fetch(url, {
     ...options,
