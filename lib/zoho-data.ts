@@ -8,6 +8,26 @@
 import { zohoFetch } from './zoho'
 import type { ZohoProject, ZohoTask, ZohoMilestone } from './zoho'
 
+export interface ZohoIssue {
+  id: string
+  title: string
+  status: { name: string; id: string }
+  severity?: { name: string }
+  classification?: { name: string }
+  assignee?: { name: string; id: string }
+  due_date?: string
+  created_time?: string
+  description?: string
+}
+
+export interface ZohoTasklist {
+  id: string
+  name: string
+  milestone_id?: string
+  sequence?: number
+  completed?: boolean
+}
+
 const useMock = () => process.env.NEXT_PUBLIC_USE_MOCK === 'true'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
@@ -150,4 +170,38 @@ export async function listZohoMilestones(projectId: string): Promise<ZohoMilesto
   }
 }
 
-export { MOCK_TASKS, MOCK_MILESTONES, MOCK_PROJECTS }
+const MOCK_ISSUES: ZohoIssue[] = [
+  { id: 'i1', title: 'Login button broken on mobile', status: { name: 'Open', id: 'open' }, severity: { name: 'Major' }, classification: { name: 'Bug' } },
+  { id: 'i2', title: 'Dashboard slow to load', status: { name: 'In Progress', id: 'inprogress' }, severity: { name: 'Minor' }, classification: { name: 'Performance' } },
+]
+
+const MOCK_TASKLISTS: ZohoTasklist[] = [
+  { id: 'tl1', name: 'Sprint 1 — Setup', sequence: 1, completed: false },
+  { id: 'tl2', name: 'Sprint 2 — Auth', sequence: 2, completed: false },
+]
+
+export async function listZohoIssues(projectId: string): Promise<ZohoIssue[]> {
+  if (useMock()) return MOCK_ISSUES
+  try {
+    const res = await zohoFetch(`/projects/${projectId}/issues/`)
+    if (!res.ok) return MOCK_ISSUES
+    const data = await res.json()
+    return data.bugs ?? data.issues ?? []
+  } catch {
+    return MOCK_ISSUES
+  }
+}
+
+export async function listZohoTasklists(projectId: string): Promise<ZohoTasklist[]> {
+  if (useMock()) return MOCK_TASKLISTS
+  try {
+    const res = await zohoFetch(`/projects/${projectId}/tasklists/`)
+    if (!res.ok) return MOCK_TASKLISTS
+    const data = await res.json()
+    return data.tasklists ?? []
+  } catch {
+    return MOCK_TASKLISTS
+  }
+}
+
+export { MOCK_TASKS, MOCK_MILESTONES, MOCK_PROJECTS, MOCK_ISSUES, MOCK_TASKLISTS }

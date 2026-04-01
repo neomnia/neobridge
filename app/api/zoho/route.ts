@@ -88,10 +88,17 @@ export async function GET(req: NextRequest) {
         const data = await res.json()
         return NextResponse.json(data.tasks?.[0] ?? null)
       }
+      case "listIssues":
       case "listBugs": {
-        const res = await zohoFetch(`/projects/${projectId}/bugs/`)
+        // V3 API: /issues/ (old /bugs/ was renamed)
+        const res = await zohoFetch(`/projects/${projectId}/issues/`)
         const data = await res.json()
-        return NextResponse.json(data.bugs ?? [])
+        return NextResponse.json(data.bugs ?? data.issues ?? [])
+      }
+      case "listTasklists": {
+        const res = await zohoFetch(`/projects/${projectId}/tasklists/`)
+        const data = await res.json()
+        return NextResponse.json(data.tasklists ?? [])
       }
       case "listUsers": {
         const res = await zohoFetch(`/projects/${projectId}/users/`)
@@ -207,7 +214,9 @@ export async function POST(req: NextRequest) {
         const data = await res.json()
         return NextResponse.json(data)
       }
+      case "createIssue":
       case "createBug": {
+        // V3 API: /issues/ endpoint (formerly /bugs/)
         if (!projectId || !body.title) return NextResponse.json({ error: "projectId and title required" }, { status: 400 })
         const payload: Record<string, string> = { title: body.title }
         if (body.description)    payload.description    = body.description
@@ -215,7 +224,18 @@ export async function POST(req: NextRequest) {
         if (body.classification) payload.classification = body.classification
         if (body.assignee)       payload.assignee       = body.assignee
         if (body.due_date)       payload.due_date       = body.due_date
-        const res = await zohoFetch(`/projects/${projectId}/bugs/`, {
+        const res = await zohoFetch(`/projects/${projectId}/issues/`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json()
+        return NextResponse.json(data)
+      }
+      case "createTasklist": {
+        if (!projectId || !body.name) return NextResponse.json({ error: "projectId and name required" }, { status: 400 })
+        const payload: Record<string, string> = { name: body.name }
+        if (body.milestone_id) payload.milestone_id = body.milestone_id
+        const res = await zohoFetch(`/projects/${projectId}/tasklists/`, {
           method: "POST",
           body: JSON.stringify(payload),
         })
@@ -263,6 +283,15 @@ export async function POST(req: NextRequest) {
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
+const MOCK_ISSUES = [
+  { id: "i1", title: "Login button broken on mobile", status: { name: "Open", id: "open" }, severity: { name: "Major" } },
+  { id: "i2", title: "Dashboard slow to load", status: { name: "In Progress", id: "inprogress" }, severity: { name: "Minor" } },
+]
+const MOCK_TASKLISTS = [
+  { id: "tl1", name: "Sprint 1 — Setup", sequence: 1, completed: false },
+  { id: "tl2", name: "Sprint 2 — Auth", sequence: 2, completed: false },
+]
+
 function handleMock(action: string | null, projectId?: string) {
   switch (action) {
     case "listProjects":  return NextResponse.json(MOCK_PROJECTS)
@@ -270,8 +299,11 @@ function handleMock(action: string | null, projectId?: string) {
       const p = MOCK_PROJECTS.find(p => p.id === projectId) ?? MOCK_PROJECTS[0]
       return NextResponse.json(p)
     }
-    case "listTasks":     return NextResponse.json(MOCK_TASKS)
+    case "listTasks":      return NextResponse.json(MOCK_TASKS)
     case "listMilestones": return NextResponse.json(MOCK_MILESTONES)
+    case "listIssues":
+    case "listBugs":       return NextResponse.json(MOCK_ISSUES)
+    case "listTasklists":  return NextResponse.json(MOCK_TASKLISTS)
     default: return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
   }
 }

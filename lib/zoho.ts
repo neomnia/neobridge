@@ -115,18 +115,22 @@ async function resolveNumericPortalId(creds: { portalId: string; domain: string 
   if (/^\d+$/.test(creds.portalId)) return creds.portalId
   // Return cached value
   if (cachedNumericPortalId) return cachedNumericPortalId
-  // Look up from portals list (old restapi still works for this endpoint)
+  // Look up from portals list using V3 endpoint
   try {
-    const res = await fetch(`https://projectsapi.${creds.domain}/restapi/portals/`, {
+    const res = await fetch(`https://projectsapi.${creds.domain}/api/v3/portals/`, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     })
     if (res.ok) {
       const data = await res.json()
-      const portals: Array<{ id?: string | number; id_string?: string; name?: string }> =
-        data.login_info?.portals ?? data.portals ?? []
-      const match = portals.find(p => p.id_string === creds.portalId || p.name === creds.portalId)
-      if (match?.id) {
-        cachedNumericPortalId = String(match.id)
+      const portals: Array<{ id?: string | number; portal_id?: string; id_string?: string; name?: string }> =
+        data.portals ?? data.login_info?.portals ?? []
+      const match = portals.find(p =>
+        p.id_string === creds.portalId ||
+        p.name === creds.portalId ||
+        String(p.portal_id) === creds.portalId
+      )
+      if (match?.id ?? match?.portal_id) {
+        cachedNumericPortalId = String(match.id ?? match.portal_id)
         return cachedNumericPortalId
       }
     }
