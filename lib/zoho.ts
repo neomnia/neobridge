@@ -158,14 +158,26 @@ export async function getZohoPortalUrl(): Promise<string> {
 export interface ZohoTask {
   id: string
   name: string
-  status: { name: string; id: string }
+  status: { name: string; id: string; color?: string }
   priority: string
-  owner?: { name: string; id: string }[]
+  owner?: { name: string; id: string; zpuid?: string }[]
   created_time?: string
   last_updated_time?: string
-  tags?: { name: string }[]
+  due_date?: string           // "MM-DD-YYYY" format
+  start_date?: string
+  percent_complete?: string   // "0"–"100" as string
+  tags?: { name: string; id?: string }[]
   milestone_id?: string
   description?: string
+  comments_count?: number
+  subtasks_count?: number
+}
+
+export interface ZohoStatus {
+  id: string
+  name: string
+  color?: string
+  type?: string  // "open" | "closed"
 }
 
 export interface ZohoMilestone {

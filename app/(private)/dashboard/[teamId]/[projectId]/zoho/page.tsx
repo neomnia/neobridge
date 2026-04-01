@@ -2,7 +2,11 @@ import { db } from '@/db'
 import { platformConfig } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ZohoProjectLink } from '@/lib/types/zoho'
-import { listZohoTasks, listZohoMilestones } from '@/lib/zoho-data'
+import {
+  listZohoTasksWithStatus,
+  listZohoMilestones,
+  listZohoStatuses,
+} from '@/lib/zoho-data'
 import { getZohoPortalUrl } from '@/lib/zoho'
 import { KanbanBoard } from '@/components/neobridge/kanban/KanbanBoard'
 import { BarChart3, ExternalLink, Link2Off, Milestone } from 'lucide-react'
@@ -53,13 +57,15 @@ export default async function ZohoPage({
     )
   }
 
-  // ── Fetch Zoho data ─────────────────────────────────────────────────────────
-  const [tasks, milestones] = await Promise.all([
-    listZohoTasks(link.zohoProjectId),
+  // ── Fetch everything in parallel ────────────────────────────────────────────
+  const syncedAt = new Date()
+  const [taskResult, milestones, statuses] = await Promise.all([
+    listZohoTasksWithStatus(link.zohoProjectId),
     listZohoMilestones(link.zohoProjectId),
+    listZohoStatuses(link.zohoProjectId),
   ])
 
-  const zohoProjectUrl = `${portalBaseUrl}`
+  const { tasks, isMock, error: syncError } = taskResult
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -75,12 +81,16 @@ export default async function ZohoPage({
               {milestones.length > 0 && (
                 <> · {milestones.length} milestone{milestones.length !== 1 ? 's' : ''}</>
               )}
-              <span className="ml-2 opacity-50">· ID Zoho : {link.zohoProjectId}</span>
+              {!isMock && (
+                <span className="ml-2 text-green-600 dark:text-green-400">
+                  · Synchro {syncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
             </p>
           </div>
         </div>
         <a
-          href={zohoProjectUrl}
+          href={portalBaseUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors border rounded-lg px-3 py-2 whitespace-nowrap shrink-0"
@@ -89,6 +99,26 @@ export default async function ZohoPage({
           Ouvrir Zoho
         </a>
       </div>
+
+      {/* Sync error banner */}
+      {isMock && syncError && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3 text-sm space-y-1">
+          <p className="font-medium text-amber-800 dark:text-amber-300">
+            Données de démonstration — synchronisation Zoho échouée
+          </p>
+          <p className="font-mono text-xs text-amber-700 dark:text-amber-400 break-all">{syncError}</p>
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Vérifiez les credentials dans{' '}
+            <Link href="/admin/api" className="underline underline-offset-2">Admin → API Management → Zoho</Link>
+          </p>
+        </div>
+      )}
+      {isMock && !syncError && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-3 text-sm text-blue-700 dark:text-blue-300">
+          Mode démonstration — données fictives. Configurez Zoho dans{' '}
+          <Link href="/admin/api" className="underline underline-offset-2">Admin → API Management</Link>.
+        </div>
+      )}
 
       {/* Milestones */}
       {milestones.length > 0 && (
@@ -127,6 +157,9 @@ export default async function ZohoPage({
           initialTasks={tasks}
           zohoProjectId={link.zohoProjectId}
           portalBaseUrl={portalBaseUrl}
+          statuses={statuses}
+          isMock={isMock}
+          milestones={milestones}
         />
       </div>
     </div>

@@ -96,15 +96,47 @@ export async function getZohoProject(projectId: string): Promise<ZohoProject | n
   }
 }
 
-export async function listZohoTasks(projectId: string): Promise<ZohoTask[]> {
-  if (useMock()) return MOCK_TASKS
+export async function listZohoTasksWithStatus(projectId: string): Promise<{
+  tasks: ZohoTask[]
+  isMock: boolean
+  error?: string
+}> {
+  if (useMock()) return { tasks: MOCK_TASKS, isMock: true }
   try {
     const res = await zohoFetch(`/projects/${projectId}/tasks/`)
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      const msg = `Zoho API HTTP ${res.status}${text ? ': ' + text.slice(0, 200) : ''}`
+      console.error('[zoho-data] listZohoTasks failed:', msg)
+      return { tasks: MOCK_TASKS, isMock: true, error: msg }
+    }
     const data = await res.json()
-    return data.tasks ?? []
-  } catch {
-    return MOCK_TASKS
+    return { tasks: data.tasks ?? [], isMock: false }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[zoho-data] listZohoTasks exception:', msg)
+    return { tasks: MOCK_TASKS, isMock: true, error: msg }
   }
+}
+
+export async function listZohoTasks(projectId: string): Promise<ZohoTask[]> {
+  const { tasks } = await listZohoTasksWithStatus(projectId)
+  return tasks
+}
+
+export async function listZohoStatuses(projectId: string): Promise<import('./zoho').ZohoStatus[]> {
+  if (useMock()) return [
+    { id: 'open',       name: 'Open',        color: '#94a3b8', type: 'open'   },
+    { id: 'inprogress', name: 'In Progress', color: '#3b82f6', type: 'open'   },
+    { id: 'inreview',   name: 'In Review',   color: '#f59e0b', type: 'open'   },
+    { id: 'closed',     name: 'Closed',      color: '#22c55e', type: 'closed' },
+  ]
+  try {
+    const res = await zohoFetch(`/projects/${projectId}/tasks/statuses/`)
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.statuses ?? []
+  } catch { return [] }
 }
 
 export async function listZohoMilestones(projectId: string): Promise<ZohoMilestone[]> {
