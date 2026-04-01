@@ -11,14 +11,9 @@ import { eq } from "drizzle-orm"
 
 const CONFIG_KEY = "zoho_project_links"
 
-export interface ZohoProjectLink {
-  zohoProjectId: string
-  zohoProjectName: string
-  teamId: string
-  projectId: string
-  projectName: string
-  linkedAt: string
-}
+// Re-export from shared types to avoid boundary violations
+export type { ZohoProjectLink } from "@/lib/types/zoho"
+import type { ZohoProjectLink } from "@/lib/types/zoho"
 
 async function getLinks(): Promise<Record<string, ZohoProjectLink>> {
   const row = await db.select().from(platformConfig).where(eq(platformConfig.key, CONFIG_KEY)).limit(1)

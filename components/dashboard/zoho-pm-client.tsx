@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import type { ZohoProject } from "@/lib/zoho"
 import type { VercelProject } from "@/lib/connectors/vercel"
-import type { ZohoProjectLink } from "@/app/api/zoho/links/route"
+import type { ZohoProjectLink } from "@/lib/types/zoho"
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

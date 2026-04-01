@@ -1,12 +1,17 @@
 /**
- * GET    /api/projects/[id]/apps/[appId] — détail app
+ * GET    /api/projects/[id]/apps/[appId] — détail ressource
  * PUT    /api/projects/[id]/apps/[appId] — update
  * DELETE /api/projects/[id]/apps/[appId] — supprime
+ *
+ * Migration note: table project_apps → project_resources
+ * platform → provider, type → resourceType
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/server'
 import { db } from '@/db'
+import { projectResources } from '@/db/schema'
+import { eq, and } from 'drizzle-orm'
 
 type Params = { params: Promise<{ id: string; appId: string }> }
 
@@ -15,41 +20,19 @@ export async function GET(_req: NextRequest, { params }: Params) {
     await requireAuth()
     const { id, appId } = await params
 
-    try {
-      const { projectApps } = await import('@/db/schema')
-      const { eq, and } = await import('drizzle-orm')
+    const [row] = await db
+      .select()
+      .from(projectResources)
+      .where(and(eq(projectResources.id, appId), eq(projectResources.projectId, id)))
+      .limit(1)
 
-      const [row] = await db
-        .select()
-        .from(projectApps)
-        .where(
-          and(
-            eq(projectApps.id, appId),
-            eq(projectApps.projectId, id)
-          )
-        )
-        .limit(1)
-
-      if (!row) {
-        return NextResponse.json(
-          { success: false, error: 'Not found' },
-          { status: 404 }
-        )
-      }
-
-      return NextResponse.json({ success: true, data: row })
-    } catch (err) {
-      console.warn('[projects/apps/[appId]] Table not yet migrated:', err)
-      return NextResponse.json(
-        { success: false, error: 'Not found' },
-        { status: 404 }
-      )
+    if (!row) {
+      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
     }
+
+    return NextResponse.json({ success: true, data: row })
   } catch {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    )
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
 }
 
@@ -60,54 +43,31 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const body = await req.json()
 
     const updates: Record<string, unknown> = { updatedAt: new Date() }
-    const allowedFields = [
-      'name',
-      'platform',
-      'externalResourceId',
-      'type',
-      'branch',
-      'credentialSource',
-      'status',
-    ]
-    for (const field of allowedFields) {
-      if (body[field] !== undefined) updates[field] = body[field]
+    // Accept both old and new field names
+    if (body.provider   !== undefined) updates.provider      = body.provider
+    if (body.platform   !== undefined) updates.provider      = body.platform   // legacy
+    if (body.name       !== undefined) updates.name          = body.name
+    if (body.resourceType !== undefined) updates.resourceType = body.resourceType
+    if (body.type       !== undefined) updates.resourceType   = body.type      // legacy
+    if (body.externalResourceId !== undefined) updates.externalResourceId = body.externalResourceId
+    if (body.branch     !== undefined) updates.branch        = body.branch
+    if (body.credentialSource !== undefined) updates.credentialSource = body.credentialSource
+    if (body.status     !== undefined) updates.status        = body.status
+
+    const [row] = await db
+      .update(projectResources)
+      .set(updates)
+      .where(and(eq(projectResources.id, appId), eq(projectResources.projectId, id)))
+      .returning()
+
+    if (!row) {
+      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
     }
 
-    try {
-      const { projectApps } = await import('@/db/schema')
-      const { eq, and } = await import('drizzle-orm')
-
-      const [row] = await db
-        .update(projectApps)
-        .set(updates)
-        .where(
-          and(
-            eq(projectApps.id, appId),
-            eq(projectApps.projectId, id)
-          )
-        )
-        .returning()
-
-      if (!row) {
-        return NextResponse.json(
-          { success: false, error: 'Not found' },
-          { status: 404 }
-        )
-      }
-
-      return NextResponse.json({ success: true, data: row })
-    } catch (err) {
-      console.error('[projects/apps/[appId]] Update failed:', err)
-      return NextResponse.json(
-        { success: false, error: 'Failed to update app' },
-        { status: 500 }
-      )
-    }
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    )
+    return NextResponse.json({ success: true, data: row })
+  } catch (err) {
+    console.error('[projects/apps/[appId]] Update failed:', err)
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -116,31 +76,13 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await requireAuth()
     const { id, appId } = await params
 
-    try {
-      const { projectApps } = await import('@/db/schema')
-      const { eq, and } = await import('drizzle-orm')
+    await db
+      .delete(projectResources)
+      .where(and(eq(projectResources.id, appId), eq(projectResources.projectId, id)))
 
-      await db
-        .delete(projectApps)
-        .where(
-          and(
-            eq(projectApps.id, appId),
-            eq(projectApps.projectId, id)
-          )
-        )
-
-      return NextResponse.json({ success: true })
-    } catch (err) {
-      console.error('[projects/apps/[appId]] Delete failed:', err)
-      return NextResponse.json(
-        { success: false, error: 'Failed to delete app' },
-        { status: 500 }
-      )
-    }
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    )
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('[projects/apps/[appId]] Delete failed:', err)
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
   }
 }

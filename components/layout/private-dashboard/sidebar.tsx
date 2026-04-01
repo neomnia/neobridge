@@ -46,7 +46,7 @@ import { toast } from "sonner"
 import { useUser } from "@/lib/contexts/user-context"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
 
-const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods", "new", "projects", "deployments", "logs", "costs", "projects-pm"])
+const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods", "new", "projects", "deployments", "logs", "costs", "projects-pm", "api-keys", "kanban", "sprint", "agent"])
 
 interface ActiveProject {
   teamId: string

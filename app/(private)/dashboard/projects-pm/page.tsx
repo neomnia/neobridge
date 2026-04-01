@@ -9,7 +9,7 @@ import { db } from '@/db'
 import { platformConfig } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { ZohoPmClient } from '@/components/dashboard/zoho-pm-client'
-import type { ZohoProjectLink } from '@/app/api/zoho/links/route'
+import type { ZohoProjectLink } from '@/lib/types/zoho'
 
 export const metadata = { title: 'Gestion de projets — NeoBridge' }
 export const dynamic = 'force-dynamic'
