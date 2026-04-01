@@ -11,7 +11,9 @@
 
 import Link from 'next/link'
 import { requireAuth, isAdmin } from '@/lib/auth/server'
-import { serviceApiRepository } from '@/lib/services'
+import { db } from '@/db'
+import { serviceApiConfigs } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,6 +26,7 @@ import {
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 30
 export const metadata = { title: 'APIs NeoBridge' }
 
 // ─── Catalogue NeoBridge ────────────────────────────────────────────────────
@@ -156,18 +159,19 @@ export default async function ApiKeysPage() {
   const user = await requireAuth()
   const userIsAdmin = await isAdmin(user.userId)
 
-  // Fetch status for every NeoBridge service
-  const statusMap = new Map<ServiceId, boolean>()
-  await Promise.all(
-    NEOBRIDGE_SERVICES.map(async (svc) => {
-      try {
-        const cfg = await serviceApiRepository.getConfig(svc.id as any, 'production')
-        statusMap.set(svc.id, !!cfg?.isActive)
-      } catch {
-        statusMap.set(svc.id, false)
-      }
-    })
-  )
+  // Single query — only read serviceName + isActive, no decryption needed
+  const statusMap = new Map<string, boolean>()
+  try {
+    const rows = await db
+      .select({ serviceName: serviceApiConfigs.serviceName, isActive: serviceApiConfigs.isActive })
+      .from(serviceApiConfigs)
+      .where(eq(serviceApiConfigs.environment, 'production'))
+    for (const row of rows) {
+      statusMap.set(row.serviceName, row.isActive)
+    }
+  } catch {
+    // DB unreachable — all services shown as not configured
+  }
 
   const configuredCount = [...statusMap.values()].filter(Boolean).length
   const groups = groupByCategory(NEOBRIDGE_SERVICES)
