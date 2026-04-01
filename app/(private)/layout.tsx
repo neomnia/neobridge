@@ -20,13 +20,12 @@ export const maxDuration = 30
 export default async function PrivateLayout({ children }: { children: React.ReactNode }) {
   // Verify authentication - redirects to login if not authenticated
   const user = await requireAuth()
-  // Race isAdmin against a 8s timeout — if Neon is cold, default to false
-  // rather than letting the entire layout function time out with a 500.
-  const timeout = <T>(ms: number, fallback: T): Promise<T> =>
-    new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+  // Race isAdmin against 8s — if Neon is cold, default to false instead of 500.
+  const withTimeout = (ms: number, fallback: boolean) =>
+    new Promise<boolean>(resolve => setTimeout(() => resolve(fallback), ms))
   const [platformConfig, userIsAdmin] = await Promise.all([
     getPlatformConfig(),
-    Promise.race([isAdmin(user.userId), timeout(8000, false)]),
+    Promise.race([isAdmin(user.userId), withTimeout(8000, false)]),
   ])
 
   // Check maintenance mode - redirect non-admin users to maintenance page
