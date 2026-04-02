@@ -69,11 +69,13 @@ interface Props {
   zohoPortalBaseUrl: string
   /** true when showing placeholder mock data (no real Zoho connection) */
   isMockData?: boolean
+  /** Set when isMockData is caused by an API error (not intentional mock mode) */
+  syncError?: string
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoPortalBaseUrl, isMockData }: Props) {
+export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoPortalBaseUrl, isMockData, syncError }: Props) {
   const [search, setSearch]           = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [linkFilter, setLinkFilter]   = useState("all")   // "all" | "linked" | "unlinked"
@@ -151,6 +153,28 @@ export function ZohoPmClient({ zohoProjects, vercelProjects, initialLinks, zohoP
       delete next[zohoProjectId]
       return next
     })
+  }
+
+  // API error — do NOT display mock data, show explicit error state
+  if (isMockData && syncError) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-8 flex flex-col items-center gap-4 text-center">
+        <AlertCircle className="h-12 w-12 text-red-400" />
+        <div>
+          <p className="font-semibold text-red-700 dark:text-red-400">Configuration Requise — Zoho Projects</p>
+          <p className="text-sm text-red-600 dark:text-red-400 mt-1 max-w-md">
+            La connexion Zoho a échoué. Aucune donnée réelle disponible.
+          </p>
+          <p className="font-mono text-xs text-red-500 dark:text-red-500 mt-2 break-all max-w-lg">{syncError}</p>
+        </div>
+        <a
+          href="/admin/api"
+          className="inline-flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 transition-colors"
+        >
+          Configurer Zoho dans Admin → API Management
+        </a>
+      </div>
+    )
   }
 
   return (

@@ -2,11 +2,34 @@
   "_meta": {
     "version": "1.0.0",
     "description": "Fichier de pilotage NeoBridge — suivi des bugs, statuts de services et décisions d'architecture.",
-    "last_updated": "2026-04-02T21:18:39Z",
+    "last_updated": "2026-04-02T22:00:00Z",
     "rule": "Ce fichier est mis à jour après chaque correction ou décision impactant l'architecture ou les services."
   },
 
   "bugs": [
+    {
+      "id": "BUG-002",
+      "title": "Gestion PM affiche MockData au lieu de l'état d'erreur Zoho",
+      "service": "zoho",
+      "severity": "high",
+      "status": "resolved",
+      "reported_at": "2026-04-02",
+      "resolved_at": "2026-04-02T22:00:00Z",
+      "branch": "claude/review-config-architecture-EZeys",
+      "root_cause": "ZohoPmClient recevait `isMockData=true` mais n'avait pas accès à `syncError`. Le flag isMockData était uniquement utilisé pour cacher le lien 'Ouvrir dans Zoho' — les fausses cartes (NeoBridge Platform, NeoSaaS Template) étaient toujours affichées même en cas d'erreur API 400/500.",
+      "fix": {
+        "files": [
+          "components/dashboard/zoho-pm-client.tsx",
+          "app/(private)/dashboard/projects-pm/page.tsx"
+        ],
+        "changes": [
+          "Ajout prop `syncError?: string` dans ZohoPmClient",
+          "Guard early-return: si isMockData && syncError → affiche état 'Configuration Requise' (carte rouge avec lien Admin)",
+          "Page transmet syncError à ZohoPmClient",
+          "Mock volontaire (NEXT_PUBLIC_USE_MOCK=true sans erreur) reste fonctionnel"
+        ]
+      }
+    },
     {
       "id": "BUG-001",
       "title": "Zoho API 400 URL_RULE_NOT_CONFIGURED",
@@ -76,6 +99,17 @@
       "role": "Orchestrateur / Frontend / API Routes",
       "status": "configured",
       "known_issues": []
+    },
+    {
+      "service": "email",
+      "type": "email",
+      "candidates": ["resend", "scaleway", "aws"],
+      "status": "missing_configuration",
+      "known_issues": [
+        "Alerte 'Missing Email Configuration' visible dans le dashboard — aucun service email actif dans le Service-Mapping.",
+        "Les notifications transactionnelles (invitations, reset password, alertes) sont bloquées."
+      ],
+      "required_action": "Configurer au moins un service email (Resend recommandé) dans Admin → API Management, puis cliquer 'Verify Key'."
     }
   ],
 

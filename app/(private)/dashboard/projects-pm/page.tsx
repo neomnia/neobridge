@@ -121,6 +121,7 @@ export default async function ProjectsPmPage() {
         initialLinks={links}
         zohoPortalBaseUrl={zohoPortalBaseUrl}
         isMockData={isMock}
+        syncError={syncError}
       />
     </div>
   )
