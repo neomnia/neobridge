@@ -213,7 +213,9 @@ export async function POST(
                 throw new Error("Client ID, Client Secret et Refresh Token sont requis")
               }
               // 1. Exchange refresh token → access token
-              const domain = testConfig.config?.domain ?? 'zoho.com'
+              // Normalize domain: "com" → "zoho.com", "zoho.com" stays "zoho.com"
+              const rawDomain = (testConfig.config?.domain ?? 'zoho.com').trim().toLowerCase()
+              const domain = rawDomain.startsWith('zoho.') ? rawDomain : `zoho.${rawDomain}`
               const tokenParams = new URLSearchParams({
                 refresh_token: refreshToken,
                 client_id: clientId,
@@ -232,17 +234,19 @@ export async function POST(
                 throw new Error(`Zoho OAuth error: ${tokenData.error} — ${tokenData.error_description ?? ''}`.trim())
               }
               const accessToken = tokenData.access_token
-              // 2. Call /portals/ to verify the token and get portal info
-              const apiBase = `https://projectsapi.${domain}/restapi`
-              const portalsRes = await fetch(`${apiBase}/portals/`, {
+              // 2. Call V3 /portals/ to verify the token and get portal info
+              // /restapi was deprecated Dec 31 2025 — use /api/v3
+              const portalsRes = await fetch(`https://projectsapi.${domain}/api/v3/portals/`, {
                 headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }
               })
               if (!portalsRes.ok) {
                 throw new Error(`Token valide mais erreur portails Zoho (HTTP ${portalsRes.status})`)
               }
               const portalsData = await portalsRes.json()
-              const portals: Array<any> = portalsData.login_info?.portals ?? portalsData.portals ?? []
-              const match = portals.find((p: any) => p.id_string === portalId || p.name === portalId)
+              const portals: Array<any> = portalsData.portals ?? portalsData.login_info?.portals ?? []
+              const match = portals.find((p: any) =>
+                p.id_string === portalId || p.name === portalId || String(p.id) === portalId
+              )
               const portalInfo = match
                 ? `portail "${match.id_string ?? match.name}" · ${match.project_count ?? '?'} projets`
                 : portals.length > 0

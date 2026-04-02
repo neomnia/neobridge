@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const origin = 'https://neobridge.vercel.app'
+  // Dynamic origin: use NEXT_PUBLIC_APP_URL env, fall back to request host
+  const origin =
+    (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '') ||
+    `${request.nextUrl.protocol}//${request.nextUrl.host}`
 
   if (error) {
     console.error('[zoho-callback] Zoho returned error:', error)
@@ -84,14 +87,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/admin/api?zoho=error&reason=${encodeURIComponent(reason)}`)
   }
 
-  // Save full config to DB
+  // Save full config to DB (upsertConfig is the correct method — saveConfig does not exist)
   try {
-    await serviceApiRepository.saveConfig('zoho', 'production', {
-      clientId:     pending.clientId,
-      clientSecret: pending.clientSecret,
-      refreshToken: tokenData.refresh_token,
-      portalId:     pending.portalId ?? '',
-      domain:       `zoho.${pending.domain}`,
+    await serviceApiRepository.upsertConfig({
+      serviceName:  'zoho',
+      serviceType:  'neobridge' as any,
+      environment:  'production',
+      isActive:     true,
+      isDefault:    true,
+      config: {
+        clientId:     pending.clientId,
+        clientSecret: pending.clientSecret,
+        refreshToken: tokenData.refresh_token,
+        portalId:     pending.portalId ?? '',
+        domain:       `zoho.${pending.domain}`,
+      },
     })
   } catch (err) {
     console.error('[zoho-callback] Failed to save config to DB:', err)

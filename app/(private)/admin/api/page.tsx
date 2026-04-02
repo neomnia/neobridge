@@ -342,6 +342,7 @@ export default function AdminApiPage() {
     clientSecret: "",
     refreshToken: "",
     portalId: "",
+    domain: "com",
   })
   const [zohoAuthCode, setZohoAuthCode] = useState("")
   const [exchangingZoho, setExchangingZoho] = useState(false)
@@ -462,6 +463,7 @@ export default function AdminApiPage() {
                 clientSecret: data.data.config.clientSecret || "",
                 refreshToken: data.data.config.refreshToken || "",
                 portalId: data.data.config.portalId || "",
+                domain: (data.data.config.domain ?? "zoho.com").replace(/^zoho\./, "") || "com",
               })
               break
             case "temporal":
@@ -509,7 +511,7 @@ export default function AdminApiPage() {
     setPaypalConfig({ clientId: "", clientSecret: "", webhookId: "" })
     setGithubConfig({ clientId: "", clientSecret: "", redirectUri: "" })
     setGoogleConfig({ clientId: "", clientSecret: "", redirectUri: "" })
-    setZohoConfig({ clientId: "", clientSecret: "", refreshToken: "", portalId: "" })
+    setZohoConfig({ clientId: "", clientSecret: "", refreshToken: "", portalId: "", domain: "com" })
     setZohoAuthCode("")
     setTemporalConfig({ address: "", namespace: "default", apiKey: "" })
     setNotionConfig({ apiKey: "" })
@@ -715,7 +717,7 @@ export default function AdminApiPage() {
           clientId: zohoConfig.clientId,
           clientSecret: zohoConfig.clientSecret,
           portalId: zohoConfig.portalId,
-          domain: 'com',
+          domain: zohoConfig.domain || 'com',
         }),
       })
       const data = await res.json()
@@ -1861,7 +1863,24 @@ export default function AdminApiPage() {
                 onChange={(e) => setZohoConfig({ ...zohoConfig, portalId: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Slug dans l'URL : projects.zoho.com/portal/<strong>{zohoConfig.portalId || '…'}</strong>
+                Slug dans l'URL : projects.zoho.{zohoConfig.domain || 'com'}/portal/<strong>{zohoConfig.portalId || '…'}</strong>
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Datacenter Zoho</Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+                value={zohoConfig.domain}
+                onChange={(e) => setZohoConfig({ ...zohoConfig, domain: e.target.value })}
+              >
+                <option value="com">Global — zoho.com</option>
+                <option value="eu">Europe — zoho.eu</option>
+                <option value="in">Inde — zoho.in</option>
+                <option value="com.au">Australie — zoho.com.au</option>
+                <option value="jp">Japon — zoho.jp</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Choisissez le datacenter de votre compte Zoho (visible dans l'URL de connexion).
               </p>
             </div>
 
@@ -1872,8 +1891,8 @@ export default function AdminApiPage() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Pré-requis Zoho API Console → <strong>Authorized Redirect URIs</strong> :<br />
-              <code className="text-[11px] bg-muted rounded px-1">https://neobridge.vercel.app/api/auth/oauth/zoho/callback</code>
+              Pré-requis dans <a href={`https://api-console.zoho.${zohoConfig.domain || 'com'}/`} target="_blank" rel="noopener noreferrer" className="underline text-violet-600">api-console.zoho.{zohoConfig.domain || 'com'}</a> → <strong>Authorized Redirect URIs</strong> :<br />
+              <code className="text-[11px] bg-muted rounded px-1">{(process.env.NEXT_PUBLIC_APP_URL ?? 'https://neobridge.vercel.app').replace(/\/$/, '')}/api/auth/oauth/zoho/callback</code>
             </p>
           </div>
         )
