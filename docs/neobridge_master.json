@@ -2,7 +2,7 @@
   "_meta": {
     "version": "1.0.0",
     "description": "Fichier de pilotage NeoBridge — suivi des bugs, statuts de services et décisions d'architecture.",
-    "last_updated": "2026-04-02T23:00:00Z",
+    "last_updated": "2026-04-02T23:30:00Z",
     "rule": "Ce fichier est mis à jour après chaque correction ou décision impactant l'architecture ou les services."
   },
 
@@ -129,6 +129,15 @@
       "rule": "NO_HARDCODED_IDS",
       "forbidden": "Coder en dur un Portal ID, API key, endpoint dans le source",
       "requirement": "Toute valeur de service transite par serviceApiRepository.listConfigs() ou process.env (variables canoniques uniquement)."
+    },
+    "zoho_api_standard": {
+      "api_version": "v3 (restapi/ deprecated since 2025-12-31)",
+      "endpoint_format": "https://projectsapi.{ZOHO_DOMAIN}/api/v3/portal/{PORTAL_ID_NUMERIC}/projects/",
+      "portal_id_rule": "Toujours utiliser l'ID numérique (ex: 748392000). Ne jamais utiliser le slug texte 'neomniadotnet' dans les chemins API.",
+      "domain_rule": "ZOHO_DOMAIN doit correspondre au datacenter du compte Zoho : 'zoho.com' (US/global), 'zoho.eu' (Europe), 'zoho.in' (Inde). Une divergence cause HTTP 400 'Given URL is wrong' ou 'URL_RULE_NOT_CONFIGURED'.",
+      "discovery_endpoint": "GET /api/zoho?action=getPortals — retourne portals[], domain utilisé, http_status et l'URL appelée. Utiliser pour déboguer le Portal ID et le domaine.",
+      "auto_resolution": "resolveNumericPortalId() dans lib/zoho.ts résout automatiquement le slug → ID numérique via GET /api/v3/portals/ au premier appel (avec cache mémoire).",
+      "warning": "Si resolveNumericPortalId() logue 'HTTP 400' sur /portals/, c'est que ZOHO_DOMAIN est incorrect. Corriger ZOHO_DOMAIN avant tout autre debug."
     }
   },
 

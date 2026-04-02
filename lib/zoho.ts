@@ -117,45 +117,58 @@ async function resolveNumericPortalId(creds: { portalId: string; domain: string 
   if (cachedNumericPortalId) return cachedNumericPortalId
   // Look up from portals list using V3 endpoint
   try {
-    const res = await fetch(`https://projectsapi.${creds.domain}/api/v3/portals/`, {
+    const portalsUrl = `https://projectsapi.${creds.domain}/api/v3/portals/`
+    const res = await fetch(portalsUrl, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     })
-    if (res.ok) {
-      const data = await res.json()
-      const portals: Array<{ id?: string | number; portal_id?: string; id_string?: string; name?: string; link?: string }> =
-        data.portals ?? data.login_info?.portals ?? []
 
-      // Match by id_string, name, portal_id, or URL slug (link field)
-      const match = portals.find(p =>
-        p.id_string === creds.portalId ||
-        p.name === creds.portalId ||
-        String(p.portal_id) === creds.portalId ||
-        p.link === creds.portalId
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      console.error(
+        `[zoho] GET ${portalsUrl} → HTTP ${res.status}` +
+        (body ? ` — ${body.slice(0, 200)}` : '') +
+        ` | Check ZOHO_DOMAIN (current: "${creds.domain}") — must match your account datacenter (zoho.com / zoho.eu / zoho.in)`
       )
-      if (match) {
-        const numericId = String(match.id ?? match.portal_id ?? match.id_string ?? '')
-        if (numericId) {
-          cachedNumericPortalId = numericId
-          return cachedNumericPortalId
-        }
-      }
+      // Fallback to slug — will also fail, but error is now surfaced above
+      return creds.portalId
+    }
 
-      // No exact match — if single portal, use it automatically
-      if (portals.length === 1) {
-        const numericId = String(portals[0].id ?? portals[0].portal_id ?? portals[0].id_string ?? '')
-        if (numericId) {
-          console.warn(`[zoho] Portal "${creds.portalId}" not matched by id/name/link — using the only accessible portal: ${numericId}`)
-          cachedNumericPortalId = numericId
-          return cachedNumericPortalId
-        }
-      }
+    const data = await res.json()
+    const portals: Array<{ id?: string | number; portal_id?: string; id_string?: string; name?: string; link?: string }> =
+      data.portals ?? data.login_info?.portals ?? []
 
-      if (portals.length > 1) {
-        const available = portals.map(p => `"${p.id_string ?? p.id}" (${p.name})`).join(', ')
-        console.error(`[zoho] Portal "${creds.portalId}" not found. Available portals: ${available}. Set ZOHO_PORTAL_ID to the numeric ID shown above.`)
+    // Match by id_string, name, portal_id, or URL slug (link field)
+    const match = portals.find(p =>
+      p.id_string === creds.portalId ||
+      p.name === creds.portalId ||
+      String(p.portal_id) === creds.portalId ||
+      p.link === creds.portalId
+    )
+    if (match) {
+      const numericId = String(match.id ?? match.portal_id ?? match.id_string ?? '')
+      if (numericId) {
+        cachedNumericPortalId = numericId
+        return cachedNumericPortalId
       }
     }
-  } catch { /* fall through */ }
+
+    // No exact match — if single portal, use it automatically
+    if (portals.length === 1) {
+      const numericId = String(portals[0].id ?? portals[0].portal_id ?? portals[0].id_string ?? '')
+      if (numericId) {
+        console.warn(`[zoho] Portal "${creds.portalId}" not matched by id/name/link — using the only accessible portal: ${numericId}`)
+        cachedNumericPortalId = numericId
+        return cachedNumericPortalId
+      }
+    }
+
+    if (portals.length > 1) {
+      const available = portals.map(p => `"${p.id_string ?? p.id}" (${p.name})`).join(', ')
+      console.error(`[zoho] Portal "${creds.portalId}" not found. Available portals: ${available}. Set ZOHO_PORTAL_ID to the numeric ID shown above.`)
+    }
+  } catch (err) {
+    console.error('[zoho] resolveNumericPortalId exception:', err instanceof Error ? err.message : err)
+  }
   // Fallback: use the slug as-is — Zoho V3 requires a numeric portal ID,
   // so this will return URL_RULE_NOT_CONFIGURED unless the ID is already numeric.
   return creds.portalId

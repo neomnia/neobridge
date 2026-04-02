@@ -111,17 +111,27 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(data.statuses ?? [])
       }
       case "getPortals": {
-        // Diagnostic — list all accessible portals
-        const { getZohoAccessToken } = await import('@/lib/zoho')
+        // Diagnostic — list all accessible portals + surface domain/status for debugging
+        const { getZohoAccessToken, isZohoConfigured } = await import('@/lib/zoho')
         const { serviceApiRepository } = await import('@/lib/services')
         const cfg = await serviceApiRepository.getConfig('zoho', 'production')
-        const domain = (cfg?.config as any)?.domain ?? process.env.ZOHO_DOMAIN ?? 'zoho.com'
+        const rawDomain = (cfg?.config as any)?.domain ?? process.env.ZOHO_DOMAIN ?? 'zoho.com'
+        // Normalize: "eu" → "zoho.eu", "zoho.eu" stays "zoho.eu"
+        const domain = rawDomain.startsWith('zoho.') ? rawDomain : `zoho.${rawDomain}`
         const token = await getZohoAccessToken()
-        const res = await fetch(`https://projectsapi.${domain}/api/v3/portals/`, {
+        const portalsUrl = `https://projectsapi.${domain}/api/v3/portals/`
+        const res = await fetch(portalsUrl, {
           headers: { Authorization: `Zoho-oauthtoken ${token}` },
         })
         const data = await res.json()
-        return NextResponse.json({ portals: data.login_info?.portals ?? data.portals ?? [], raw: data })
+        const portals = data.login_info?.portals ?? data.portals ?? []
+        return NextResponse.json({
+          portals,
+          domain,
+          portals_url: portalsUrl,
+          http_status: res.status,
+          raw: data,
+        })
       }
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
