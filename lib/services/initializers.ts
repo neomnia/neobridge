@@ -241,16 +241,42 @@ export async function testServiceConnection(serviceName: string, environment: Se
 
       case 'railway': {
         const cfg = await serviceApiRepository.getConfig('railway' as any, environment) as any;
-        if (!cfg?.config?.apiKey) return { success: false, message: 'Clé Railway non configurée' };
-        const r = await fetch('https://backboard.railway.app/graphql/v2', {
+        const savedConfig = cfg?.config || {};
+        const token = savedConfig.projectToken || savedConfig.apiKey || savedConfig.accessToken;
+        const explicitMode = cfg?.metadata?.authMode;
+        const looksLikeProjectToken = typeof token === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(token);
+        const useProjectToken = explicitMode === 'project-token' || Boolean(cfg?.metadata?.projectName) || looksLikeProjectToken;
+
+        if (!token) {
+          if (savedConfig.clientId && savedConfig.clientSecret) {
+            return {
+              success: false,
+              message: 'Railway OAuth prêt — utilisez /api/auth/oauth/railway pour autoriser l’application.',
+            };
+          }
+          return { success: false, message: 'Clé Railway non configurée' };
+        }
+
+        const r = await fetch('https://backboard.railway.com/graphql/v2', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${cfg.config.apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: '{ me { id name } }' })
+          headers: useProjectToken
+            ? { 'Project-Access-Token': token, 'Content-Type': 'application/json' }
+            : { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: useProjectToken
+              ? '{ projectToken { projectId environmentId } }'
+              : '{ me { id name email } }'
+          })
         });
-        if (!r.ok) return { success: false, message: 'Clé API Railway invalide' };
+        if (!r.ok) return { success: false, message: useProjectToken ? 'Project token Railway invalide' : 'Clé API Railway invalide' };
         const d = await r.json();
-        if (d.errors) return { success: false, message: 'Token Railway invalide ou expiré' };
-        return { success: true, message: `Railway : ${d.data?.me?.name || d.data?.me?.id}` };
+        if (d.errors) return { success: false, message: useProjectToken ? 'Project token Railway invalide ou expiré' : 'Token Railway invalide ou expiré' };
+        return {
+          success: true,
+          message: useProjectToken
+            ? `Railway projet valide : ${d.data?.projectToken?.projectId || 'project'} / ${d.data?.projectToken?.environmentId || 'environment'}`
+            : `Railway : ${d.data?.me?.name || d.data?.me?.email || d.data?.me?.id}`
+        };
       }
 
       case 'zoho': {

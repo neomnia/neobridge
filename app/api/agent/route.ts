@@ -11,6 +11,8 @@ const bodySchema = z.object({
   taskId: z.string().optional(),
   taskIds: z.array(z.string()).optional(),
   prompt: z.string().optional(),
+  railwayProjectId: z.string().optional(),
+  railwayEnvironmentId: z.string().optional(),
 })
 
 /**

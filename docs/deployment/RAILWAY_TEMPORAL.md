@@ -38,6 +38,34 @@ Puis:
 railway link
 ```
 
+## Etape 1bis - Project token Railway dans NeoBridge
+
+Pour un acces scope au projet `neobridge`, Railway documente le mode **project token** avec:
+
+- endpoint: `https://backboard.railway.com/graphql/v2`
+- header: `Project-Access-Token: <PROJECT_TOKEN>`
+- requete de verification: `query { projectToken { projectId environmentId } }`
+
+NeoBridge detecte maintenant automatiquement ce format pour les tokens projet Railway (UUID) dans l'interface admin et les tests de connexion.
+
+## Etape 1ter - OAuth Railway dans NeoBridge
+
+Pour utiliser le flux OAuth officiel Railway dans NeoBridge:
+
+1. enregistrer `clientId` et `clientSecret` du service `Railway` dans `Admin -> API`,
+2. declarer comme callback exacte:
+   - `/api/auth/oauth/railway/callback`
+   - soit `https://<ton-domaine>/api/auth/oauth/railway/callback`
+3. lancer ensuite `/api/auth/oauth/railway` depuis l'interface admin pour obtenir un `access_token` + `refresh_token`.
+
+Scopes recommandes selon la doc Railway consultee le 2 avril 2026:
+
+```text
+openid email profile offline_access
+```
+
+> `offline_access` + `prompt=consent` permettent a NeoBridge de recevoir un refresh token et d'eviter une reconnexion trop frequente.
+
 ## Etape 2 - Provisionner PostgreSQL pour Temporal
 
 Dans Railway:
@@ -185,6 +213,25 @@ curl https://<ton-app>/api/temporal/active -H "Cookie: <session-auth>"
 - `Dockerfile.temporal-worker`: image dediee pour un service worker Railway via `RAILWAY_DOCKERFILE_PATH`
 
 ## Changelog
+
+### [2026-04-02 — Railway project management + LangChain context]
+
+- **Gestion Railway depuis NeoBridge** : ajout d'un client GraphQL Railway et de routes API pour lire, mettre a jour et enrichir le projet Railway directement depuis NeoBridge.
+- **LangChain contextualise par Railway** : les briefs agents recuperent maintenant le contexte du projet Railway (services + environnements) avant de lancer Temporal.
+- **Fichiers modifies** : `lib/railway/client.ts`, `app/api/railway/projects/route.ts`, `app/api/railway/projects/[projectId]/route.ts`, `app/api/railway/projects/[projectId]/services/route.ts`, `app/api/railway/projects/[projectId]/variables/route.ts`, `lib/agents/langchain.ts`, `app/api/agent/route.ts`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact** : NeoBridge peut maintenant servir de cockpit Railway pour le projet scope par le token et transmettre ce contexte a LangChain.
+
+### [2026-04-02 — Railway project-token support]
+
+- **Support Railway project token ajoute** : NeoBridge reconnait maintenant les tokens projet Railway et utilise automatiquement l'en-tete `Project-Access-Token` avec la requete `projectToken { projectId environmentId }` recommandee par la doc officielle.
+- **Fichiers modifies** : `app/api/services/[service]/test/route.ts`, `lib/services/initializers.ts`, `app/(private)/admin/api/page.tsx`, `lib/services/types.ts`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact** : connexion plus sûre et plus precise au projet `neobridge` via un token scoppé a l'environnement de dev.
+
+### [2026-04-02 — Railway OAuth callback]
+
+- **Callback OAuth Railway ajoute** : nouvelles routes `/api/auth/oauth/railway` et `/api/auth/oauth/railway/callback`, avec sauvegarde du token OAuth dans la configuration `railway`.
+- **Fichiers modifies** : `app/api/auth/oauth/railway/route.ts`, `app/api/auth/oauth/railway/callback/route.ts`, `lib/railway/oauth.ts`, `app/(private)/admin/api/page.tsx`, `app/api/services/[service]/test/route.ts`, `lib/services/initializers.ts`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact** : NeoBridge peut maintenant se connecter a Railway via OAuth officiel et non plus seulement via un token manuel.
 
 ### [2026-04-02 — Worker scaffold]
 

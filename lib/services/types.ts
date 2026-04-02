@@ -107,6 +107,34 @@ export interface LagoConfig extends BaseServiceConfig {
   };
 }
 
+// Railway configuration
+export interface RailwayConfig extends BaseServiceConfig {
+  serviceName: 'railway';
+  serviceType: 'neobridge' | 'compute' | 'other';
+  config: {
+    apiKey?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    clientId?: string;
+    clientSecret?: string;
+    callbackUrl?: string;
+    tokenType?: string;
+    scope?: string;
+    expiresAt?: string;
+    projectId?: string;
+    workspaceId?: string;
+  };
+  metadata?: {
+    authMode?: 'token' | 'project-token' | 'oauth';
+    redirectUri?: string;
+    connectedAt?: string;
+    railwayUserId?: string;
+    railwayUserEmail?: string;
+    oauthIssuer?: string;
+    projectName?: string;
+  };
+}
+
 // Union type for all service configurations
 export type ServiceConfig =
   | StripeConfig
@@ -114,7 +142,8 @@ export type ServiceConfig =
   | ScalewayConfig
   | ResendConfig
   | AWSConfig
-  | LagoConfig;
+  | LagoConfig
+  | RailwayConfig;
 
 // API Usage tracking
 export interface ServiceApiUsageRecord {

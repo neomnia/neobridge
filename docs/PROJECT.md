@@ -453,6 +453,25 @@ Use these prefixes in release notes and status updates:
 
 ## Changelog
 
+### [2026-04-02 — Railway project management + LangChain context]
+
+- **Railway pilotable depuis NeoBridge**: ajout d'un client GraphQL Railway et de routes API pour lire, mettre à jour et enrichir un projet Railway (projet, services, variables) directement depuis NeoBridge.
+- **LangChain enrichi avec le contexte Railway**: le brief agent inclut maintenant les services et environnements Railway disponibles pour préparer les workflows Temporal avec plus de contexte d'infra.
+- **Files modified**: `lib/railway/client.ts`, `app/api/railway/projects/route.ts`, `app/api/railway/projects/[projectId]/route.ts`, `app/api/railway/projects/[projectId]/services/route.ts`, `app/api/railway/projects/[projectId]/variables/route.ts`, `lib/agents/langchain.ts`, `app/api/agent/route.ts`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact**: NeoBridge dispose maintenant d'une base concrète pour créer/lire/éditer l'environnement Railway du projet et pour l'exposer aux agents LangChain.
+
+### [2026-04-02 — Railway project-token support]
+
+- **Support Railway project token ajouté**: les vérifications NeoBridge utilisent désormais automatiquement l'en-tête `Project-Access-Token` pour les tokens projet Railway scoppés à un environnement.
+- **Files modified**: `app/api/services/[service]/test/route.ts`, `lib/services/initializers.ts`, `app/(private)/admin/api/page.tsx`, `lib/services/types.ts`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact**: NeoBridge peut se connecter au projet `neobridge` avec un token projet dédié, sans dépendre d'un token de compte global.
+
+### [2026-04-02 — Railway OAuth callback]
+
+- **Railway OAuth bootstrap ajouté**: nouvelle paire de routes `/api/auth/oauth/railway` + `/api/auth/oauth/railway/callback`, avec persistance du token dans `service_api_configs` après consentement.
+- **Files modified**: `app/api/auth/oauth/railway/route.ts`, `app/api/auth/oauth/railway/callback/route.ts`, `lib/railway/oauth.ts`, `app/(private)/admin/api/page.tsx`, `app/api/services/[service]/test/route.ts`, `lib/services/initializers.ts`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact**: NeoBridge peut maintenant utiliser le flux OAuth Railway officiel au lieu de dépendre uniquement d'un token manuel.
+
 ### [2026-04-02 — LangChain gateway]
 
 - **LangChain interface scaffolded for Railway/Temporal**: added a server-side agent endpoint that prepares a LangChain brief, stores traces in Mongo when configured, and then hands execution off to the Temporal start API.

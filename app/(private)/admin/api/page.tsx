@@ -352,13 +352,37 @@ export default function AdminApiPage() {
   })
   const [notionConfig, setNotionConfig] = useState({ apiKey: "" })
   const [githubTokenConfig, setGithubTokenConfig] = useState({ personalAccessToken: "" })
-  const [railwayConfig, setRailwayConfig] = useState({ apiKey: "" })
+  const [railwayConfig, setRailwayConfig] = useState({
+    apiKey: "",
+    clientId: "",
+    clientSecret: "",
+    redirectUri: "",
+  })
   const [anthropicConfig, setAnthropicConfig] = useState({ apiKey: "" })
   const [mistralConfig, setMistralConfig] = useState({ apiKey: "" })
   const [vercelConfig, setVercelConfig] = useState({ apiToken: "" })
 
   useEffect(() => {
     loadAllConfigs()
+
+    if (typeof window === "undefined") return
+
+    const params = new URLSearchParams(window.location.search)
+    const oauthStatus = params.get("oauth")
+    const service = params.get("service")
+    const details = params.get("details")
+
+    if (service === "railway" && oauthStatus) {
+      toast({
+        title: oauthStatus === "success" ? "✅ Railway connecté" : "❌ Railway OAuth",
+        description: details || (oauthStatus === "success"
+          ? "Autorisation Railway terminée avec succès."
+          : "La connexion OAuth Railway a échoué."),
+        variant: oauthStatus === "success" ? "default" : "destructive",
+      })
+
+      window.history.replaceState({}, "", window.location.pathname)
+    }
   }, [])
 
   const loadAllConfigs = async () => {
@@ -464,7 +488,12 @@ export default function AdminApiPage() {
               setGithubTokenConfig({ personalAccessToken: data.data.config.personalAccessToken || "" })
               break
             case "railway":
-              setRailwayConfig({ apiKey: data.data.config.apiKey || "" })
+              setRailwayConfig({
+                apiKey: data.data.config.apiKey || data.data.config.accessToken || "",
+                clientId: data.data.config.clientId || "",
+                clientSecret: data.data.config.clientSecret || "",
+                redirectUri: data.data.metadata?.redirectUri || data.data.config.callbackUrl || "",
+              })
               break
             case "anthropic":
               setAnthropicConfig({ apiKey: data.data.config.apiKey || "" })
@@ -500,7 +529,7 @@ export default function AdminApiPage() {
     setTemporalConfig({ address: "", namespace: "default", apiKey: "" })
     setNotionConfig({ apiKey: "" })
     setGithubTokenConfig({ personalAccessToken: "" })
-    setRailwayConfig({ apiKey: "" })
+    setRailwayConfig({ apiKey: "", clientId: "", clientSecret: "", redirectUri: "" })
     setAnthropicConfig({ apiKey: "" })
     setMistralConfig({ apiKey: "" })
     setVercelConfig({ apiToken: "" })
@@ -615,10 +644,27 @@ export default function AdminApiPage() {
           if (!githubTokenConfig.personalAccessToken) throw new Error("Le token GitHub est requis")
           config = githubTokenConfig
           break
-        case "railway":
-          if (!railwayConfig.apiKey) throw new Error("La clé API Railway est requise")
-          config = railwayConfig
+        case "railway": {
+          const railwayRedirectUri = railwayConfig.redirectUri || (typeof window !== "undefined"
+            ? `${window.location.origin}/api/auth/oauth/railway/callback`
+            : `${process.env.NEXT_PUBLIC_APP_URL || 'https://votredomaine.com'}/api/auth/oauth/railway/callback`)
+
+          if (!railwayConfig.apiKey && (!railwayConfig.clientId || !railwayConfig.clientSecret)) {
+            throw new Error("Renseignez un token Railway ou un couple Client ID / Client Secret")
+          }
+
+          config = {
+            apiKey: railwayConfig.apiKey,
+            clientId: railwayConfig.clientId,
+            clientSecret: railwayConfig.clientSecret,
+            callbackUrl: railwayRedirectUri,
+          }
+          metadata = {
+            redirectUri: railwayRedirectUri,
+            authMode: railwayConfig.clientId && railwayConfig.clientSecret ? "oauth" : "token",
+          }
           break
+        }
         case "anthropic":
           if (!anthropicConfig.apiKey) throw new Error("La clé API Anthropic est requise")
           config = anthropicConfig
@@ -816,10 +862,27 @@ export default function AdminApiPage() {
           if (!githubTokenConfig.personalAccessToken) throw new Error("Le token GitHub est requis")
           config = githubTokenConfig
           break
-        case "railway":
-          if (!railwayConfig.apiKey) throw new Error("La clé API Railway est requise")
-          config = railwayConfig
+        case "railway": {
+          const railwayRedirectUri = railwayConfig.redirectUri || (typeof window !== "undefined"
+            ? `${window.location.origin}/api/auth/oauth/railway/callback`
+            : `${process.env.NEXT_PUBLIC_APP_URL || 'https://votredomaine.com'}/api/auth/oauth/railway/callback`)
+
+          if (!railwayConfig.apiKey && (!railwayConfig.clientId || !railwayConfig.clientSecret)) {
+            throw new Error("Renseignez un token Railway ou un couple Client ID / Client Secret")
+          }
+
+          config = {
+            apiKey: railwayConfig.apiKey,
+            clientId: railwayConfig.clientId,
+            clientSecret: railwayConfig.clientSecret,
+            callbackUrl: railwayRedirectUri,
+          }
+          metadata = {
+            redirectUri: railwayRedirectUri,
+            authMode: railwayConfig.clientId && railwayConfig.clientSecret ? "oauth" : "token",
+          }
           break
+        }
         case "anthropic":
           if (!anthropicConfig.apiKey) throw new Error("La clé API Anthropic est requise")
           config = anthropicConfig
@@ -1935,21 +1998,78 @@ export default function AdminApiPage() {
       case "railway":
         return (
           <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">Connexion Railway</p>
+              <p className="text-muted-foreground">
+                Vous pouvez utiliser soit un token personnel, soit OAuth avec `clientId` + `clientSecret`.
+              </p>
+            </div>
+
             <div className="space-y-2">
-              <Label>API Token *</Label>
+              <Label>Account / Project Token</Label>
               <div className="relative">
                 <Input
                   type={showKey ? "text" : "password"}
                   placeholder="railway_..."
                   value={railwayConfig.apiKey}
-                  onChange={(e) => setRailwayConfig({ apiKey: e.target.value })}
+                  onChange={(e) => setRailwayConfig((prev) => ({ ...prev, apiKey: e.target.value }))}
                   className="pr-10"
                 />
                 <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
                   {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">railway.app → Account Settings → Tokens</p>
+              <p className="text-xs text-muted-foreground">Option 1 — token de compte <strong>ou</strong> token de projet. Les tokens projet (UUID) sont automatiquement envoyés via l’en-tête `Project-Access-Token`.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>OAuth Client ID</Label>
+              <Input
+                placeholder="rlwy_oaci_..."
+                value={railwayConfig.clientId}
+                onChange={(e) => setRailwayConfig((prev) => ({ ...prev, clientId: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>OAuth Client Secret</Label>
+              <div className="relative">
+                <Input
+                  type={showSecretKey ? "text" : "password"}
+                  placeholder="rlwy_oacs_..."
+                  value={railwayConfig.clientSecret}
+                  onChange={(e) => setRailwayConfig((prev) => ({ ...prev, clientSecret: e.target.value }))}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowSecretKey(!showSecretKey)} className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700">
+                  {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Option 2 — credentials de votre Railway OAuth App.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Callback URL</Label>
+              <Input
+                readOnly
+                value={railwayConfig.redirectUri || (typeof window !== "undefined"
+                  ? `${window.location.origin}/api/auth/oauth/railway/callback`
+                  : `${process.env.NEXT_PUBLIC_APP_URL || 'https://votredomaine.com'}/api/auth/oauth/railway/callback`)}
+              />
+              <p className="text-xs text-muted-foreground">Ajoutez exactement cette URL comme redirect URI dans Railway, puis enregistrez la configuration avant de cliquer sur le bouton OAuth.</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  window.location.href = "/api/auth/oauth/railway"
+                }}
+                disabled={!railwayConfig.clientId || !railwayConfig.clientSecret}
+              >
+                Connect via Railway OAuth
+              </Button>
             </div>
           </div>
         )

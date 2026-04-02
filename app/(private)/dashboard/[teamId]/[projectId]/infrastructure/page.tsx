@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Plus, Server } from 'lucide-react'
+import { getRailwayProject, getRailwayScopeInfo } from '@/lib/railway/client'
 
 export const metadata = { title: 'Infrastructure — NeoBridge' }
 
@@ -56,6 +57,21 @@ async function fetchProjectApps(projectId: string): Promise<ProjectApp[]> {
   }
 }
 
+async function fetchRailwaySnapshot() {
+  try {
+    const scope = await getRailwayScopeInfo('production')
+    if (!scope.projectId) return null
+
+    const project = await getRailwayProject(scope.projectId, 'production')
+    return {
+      ...project,
+      scope,
+    }
+  } catch {
+    return null
+  }
+}
+
 export default async function InfrastructurePage({
   params,
 }: {
@@ -63,6 +79,7 @@ export default async function InfrastructurePage({
 }) {
   const { teamId: _teamId, projectId } = await params
   const apps = await fetchProjectApps(projectId)
+  const railway = await fetchRailwaySnapshot()
 
   return (
     <div className="space-y-6">
@@ -78,6 +95,41 @@ export default async function InfrastructurePage({
           Mapper une application
         </Button>
       </div>
+
+      {railway ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-base">Railway connecté</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Projet live disponible depuis NeoBridge via le token Railway configuré.
+                </p>
+              </div>
+              <Badge variant="secondary">{railway.scope.mode}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div>
+              <p className="font-medium">{railway.name}</p>
+              <p className="text-muted-foreground break-all">Project ID: {railway.id}</p>
+              {railway.scope.environmentId ? (
+                <p className="text-muted-foreground break-all">Environment ID: {railway.scope.environmentId}</p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {railway.environments.map((environment) => (
+                <Badge key={environment.id} variant="outline">{environment.name}</Badge>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {railway.services.map((service) => (
+                <Badge key={service.id} variant="secondary">{service.name}</Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {apps.length === 0 ? (
         <div className="flex flex-col items-center justify-center border border-dashed rounded-lg py-20 text-center">

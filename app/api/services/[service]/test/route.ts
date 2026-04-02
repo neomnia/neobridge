@@ -189,20 +189,44 @@ export async function POST(
             break
 
           case 'railway':
-            if (!testConfig.config?.apiKey) throw new Error("Clé API Railway requise")
+            if (!testConfig.config?.apiKey && !testConfig.config?.accessToken && !testConfig.config?.projectToken) {
+              if (testConfig.config?.clientId && testConfig.config?.clientSecret) {
+                result = {
+                  success: true,
+                  message: 'Railway OAuth configuré — enregistrez puis lancez /api/auth/oauth/railway pour autoriser l’application.'
+                }
+                break
+              }
+              throw new Error("Renseignez un token Railway ou un couple Client ID / Client Secret")
+            }
             {
-              const rRes = await fetch('https://backboard.railway.app/graphql/v2', {
+              const token = testConfig.config.projectToken || testConfig.config.apiKey || testConfig.config.accessToken
+              const explicitMode = testConfig.metadata?.authMode
+              const looksLikeProjectToken = typeof token === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(token)
+              const useProjectToken = explicitMode === 'project-token' || Boolean(testConfig.metadata?.projectName) || looksLikeProjectToken
+              const rRes = await fetch('https://backboard.railway.com/graphql/v2', {
                 method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${testConfig.config.apiKey}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ query: '{ me { id name } }' })
+                headers: useProjectToken
+                  ? {
+                      'Project-Access-Token': token,
+                      'Content-Type': 'application/json',
+                    }
+                  : {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                body: JSON.stringify({
+                  query: useProjectToken
+                    ? '{ projectToken { projectId environmentId } }'
+                    : '{ me { id name email } }'
+                })
               })
-              if (!rRes.ok) throw new Error("Clé API Railway invalide")
+              if (!rRes.ok) throw new Error(useProjectToken ? "Project token Railway invalide" : "Clé API Railway invalide")
               const rData = await rRes.json()
-              if (rData.errors) throw new Error("Token Railway invalide ou expiré")
-              result = { success: true, message: `Railway connecté : ${rData.data?.me?.name || rData.data?.me?.id}` }
+              if (rData.errors) throw new Error(useProjectToken ? "Project token Railway invalide ou expiré" : "Token Railway invalide ou expiré")
+              result = useProjectToken
+                ? { success: true, message: `Railway projet valide : ${rData.data?.projectToken?.projectId || 'project'} / ${rData.data?.projectToken?.environmentId || 'environment'}` }
+                : { success: true, message: `Railway connecté : ${rData.data?.me?.name || rData.data?.me?.email || rData.data?.me?.id}` }
             }
             break
 

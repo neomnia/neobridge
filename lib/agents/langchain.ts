@@ -4,6 +4,7 @@ import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { ChatOpenAI } from '@langchain/openai'
 import { MongoClient } from 'mongodb'
 import { resolveCredential } from '@/lib/api-management'
+import { buildRailwayContextSummary } from '@/lib/railway/client'
 
 export type AgentMode = 'single' | 'sprint' | 'auto'
 
@@ -15,6 +16,8 @@ export interface AgentPlanInput {
   taskId?: string
   taskIds?: string[]
   prompt?: string
+  railwayProjectId?: string
+  railwayEnvironmentId?: string
 }
 
 export interface AgentPlanResult {
@@ -22,6 +25,7 @@ export interface AgentPlanResult {
   model: string
   summary: string
   storedToMongo: boolean
+  railwayContext?: string | null
 }
 
 type ResolvedModel = {
@@ -30,7 +34,7 @@ type ResolvedModel = {
   client: ChatAnthropic | ChatOpenAI
 }
 
-function buildFallbackSummary(input: AgentPlanInput): string {
+function buildFallbackSummary(input: AgentPlanInput, railwayContext?: string | null): string {
   const taskScope = input.taskId
     ? `Task focus: ${input.taskId}`
     : input.taskIds?.length
@@ -42,7 +46,8 @@ function buildFallbackSummary(input: AgentPlanInput): string {
     `Mode: ${input.mode}.`,
     taskScope + '.',
     input.prompt?.trim() ? `User prompt: ${input.prompt.trim()}` : 'No custom prompt supplied.',
-    'Next step: start or continue the Temporal workflow and persist execution traces in MongoDB when available.',
+    railwayContext ? `Railway context: ${railwayContext}` : 'Railway context unavailable from the current NeoBridge configuration.',
+    'Next step: start or continue the Temporal workflow, apply the Railway plan if needed, and persist execution traces in MongoDB when available.',
   ].join(' ')
 }
 
@@ -81,7 +86,7 @@ async function resolveModel(teamId?: string): Promise<ResolvedModel | null> {
   return null
 }
 
-async function persistRun(input: AgentPlanInput, result: { provider: string; model: string; summary: string }) {
+async function persistRun(input: AgentPlanInput, result: { provider: string; model: string; summary: string; railwayContext?: string | null }) {
   const uri = process.env.MONGODB_URI
   if (!uri) return false
 
@@ -101,6 +106,7 @@ async function persistRun(input: AgentPlanInput, result: { provider: string; mod
       provider: result.provider,
       model: result.model,
       summary: result.summary,
+      railwayContext: result.railwayContext ?? null,
       createdAt: new Date(),
     })
     return true
@@ -112,15 +118,26 @@ async function persistRun(input: AgentPlanInput, result: { provider: string; mod
   }
 }
 
+async function resolveRailwayContext(input: AgentPlanInput) {
+  try {
+    return await buildRailwayContextSummary(input.railwayProjectId)
+  } catch (error) {
+    console.warn('[langchain] Railway context unavailable:', error)
+    return null
+  }
+}
+
 export async function buildLangChainPlan(input: AgentPlanInput): Promise<AgentPlanResult> {
   const resolved = await resolveModel(input.teamId)
+  const railwayContext = await resolveRailwayContext(input)
 
   if (!resolved) {
-    const summary = buildFallbackSummary(input)
+    const summary = buildFallbackSummary(input, railwayContext)
     const storedToMongo = await persistRun(input, {
       provider: 'fallback',
       model: 'deterministic-brief',
       summary,
+      railwayContext,
     })
 
     return {
@@ -128,12 +145,13 @@ export async function buildLangChainPlan(input: AgentPlanInput): Promise<AgentPl
       model: 'deterministic-brief',
       summary,
       storedToMongo,
+      railwayContext,
     }
   }
 
   const prompt = ChatPromptTemplate.fromMessages([
     ['system', 'You are the NeoBridge LangChain orchestration layer. Produce a concise execution brief for a Temporal workflow. Keep it operational, implementation-oriented, and safe for a developer handoff.'],
-    ['human', `Workflow: {workflow}\nMode: {mode}\nProject: {projectId}\nTaskId: {taskId}\nTaskIds: {taskIds}\nUser prompt: {prompt}\n\nReturn:\n1. goal\n2. recommended steps\n3. expected integrations (Temporal, Zoho, GitHub, MongoDB)\n4. risks/checks before deployment`],
+    ['human', `Workflow: {workflow}\nMode: {mode}\nProject: {projectId}\nTaskId: {taskId}\nTaskIds: {taskIds}\nUser prompt: {prompt}\nRailway context: {railwayContext}\n\nReturn:\n1. goal\n2. recommended steps\n3. expected integrations (Railway, Temporal, Zoho, GitHub, MongoDB)\n4. risks/checks before deployment`],
   ])
 
   const chain = prompt.pipe(resolved.client).pipe(new StringOutputParser())
@@ -144,12 +162,14 @@ export async function buildLangChainPlan(input: AgentPlanInput): Promise<AgentPl
     taskId: input.taskId ?? 'n/a',
     taskIds: input.taskIds?.join(', ') || 'n/a',
     prompt: input.prompt ?? 'No extra prompt supplied.',
+    railwayContext: railwayContext ?? 'No Railway project context available.',
   })).trim()
 
   const storedToMongo = await persistRun(input, {
     provider: resolved.provider,
     model: resolved.model,
     summary,
+    railwayContext,
   })
 
   return {
@@ -157,5 +177,6 @@ export async function buildLangChainPlan(input: AgentPlanInput): Promise<AgentPl
     model: resolved.model,
     summary,
     storedToMongo,
+    railwayContext,
   }
 }
