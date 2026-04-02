@@ -2,7 +2,7 @@
   "_meta": {
     "version": "1.0.0",
     "description": "Fichier de pilotage NeoBridge — suivi des bugs, statuts de services et décisions d'architecture.",
-    "last_updated": "2026-04-02T22:00:00Z",
+    "last_updated": "2026-04-02T22:30:00Z",
     "rule": "Ce fichier est mis à jour après chaque correction ou décision impactant l'architecture ou les services."
   },
 
@@ -113,6 +113,19 @@
     }
   ],
 
+  "oauth_protocol": {
+    "provider": "Zoho",
+    "dynamic_callback": true,
+    "logic": "IF NEXT_PUBLIC_APP_URL is set THEN use it. ELSE IF NODE_ENV=development THEN http://localhost:3000. ELSE https://neobridge.vercel.app.",
+    "critical_check": "L'URL de redirection envoyée à Zoho DOIT correspondre strictement à l'une des deux URLs autorisées dans api-console.zoho.com → Authorized Redirect URIs.",
+    "registered_uris": [
+      "https://neobridge.vercel.app/api/auth/oauth/zoho/callback",
+      "http://localhost:3000/api/auth/oauth/zoho/callback"
+    ],
+    "implementation_file": "app/api/auth/oauth/zoho/route.ts",
+    "warning": "Ne jamais utiliser une URL de preview Vercel (*.vercel.app avec hash) — elle ne sera pas dans la liste autorisée Zoho."
+  },
+
   "architecture_decisions": [
     {
       "id": "ADR-001",
@@ -120,6 +133,13 @@
       "title": "Zoho V3 API — ID numérique obligatoire",
       "decision": "L'API Zoho Projects V3 (/api/v3/portal/{id}/) exige un ID numérique. Le slug d'URL visible dans le navigateur n'est pas directement utilisable. La résolution se fait via GET /api/v3/portals/ au premier appel, avec cache mémoire.",
       "consequence": "ZOHO_PORTAL_ID peut rester un slug en dev — le code auto-résout. En production multi-portail, préférer l'ID numérique pour éviter l'ambiguïté."
+    },
+    {
+      "id": "ADR-003",
+      "date": "2026-04-02",
+      "title": "Zoho OAuth — callback URL dynamique via NEXT_PUBLIC_APP_URL",
+      "decision": "Le redirect_uri envoyé à Zoho est construit dynamiquement depuis NEXT_PUBLIC_APP_URL (env canonique). Fallback : localhost:3000 en dev, neobridge.vercel.app en prod. Jamais une URL de preview Vercel.",
+      "consequence": "NEXT_PUBLIC_APP_URL doit être défini dans Vercel (production) et dans .env.local (dev). Le script setup-vercel-env.sh configure les deux environnements."
     },
     {
       "id": "ADR-002",

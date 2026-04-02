@@ -40,9 +40,13 @@ export async function POST(request: NextRequest) {
   // Normalize domain: "com" or "zoho.com" both → "com" for Zoho auth URL
   const rawDomain = domain.replace(/^zoho\./, '')   // "zoho.com" → "com"
 
-  // Hardcoded production URL — never use Vercel aliases or env vars
-  // which may point to a deployment-specific domain
-  const redirectUri = 'https://neobridge.vercel.app/api/auth/oauth/zoho/callback'
+  // Build redirect URI from NEXT_PUBLIC_APP_URL (canonical URL, never a Vercel preview alias).
+  // Fallback chain: env → localhost in dev → hardcoded prod URL.
+  // Both URLs must be registered in api-console.zoho.com → Authorized Redirect URIs.
+  const appUrl =
+    (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '') ||
+    (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://neobridge.vercel.app')
+  const redirectUri = `${appUrl}/api/auth/oauth/zoho/callback`
 
   const state = crypto.randomUUID()
 

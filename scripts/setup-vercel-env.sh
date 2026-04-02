@@ -51,6 +51,20 @@ echo ""
 echo "4️⃣  Configuration de ADMIN_SECRET_KEY..."
 echo "change-this-in-production" | vercel env add ADMIN_SECRET_KEY production preview development
 
+# NEXT_PUBLIC_APP_URL — canonical URL used for OAuth callbacks
+echo ""
+echo "5️⃣  Configuration de NEXT_PUBLIC_APP_URL..."
+if [ "$NODE_ENV" = "production" ]; then
+    APP_URL="https://neobridge.vercel.app"
+else
+    APP_URL="http://localhost:3000"
+fi
+ZOHO_CALLBACK_URL="${APP_URL}/api/auth/oauth/zoho/callback"
+echo "   App URL        : $APP_URL"
+echo "   Zoho Callback  : $ZOHO_CALLBACK_URL"
+echo "$APP_URL" | vercel env add NEXT_PUBLIC_APP_URL production
+echo "http://localhost:3000" | vercel env add NEXT_PUBLIC_APP_URL development
+
 echo ""
 echo "✅ Variables d'environnement configurées !"
 echo ""
@@ -58,4 +72,8 @@ echo "📌 Prochaines étapes:"
 echo "   1. Vérifiez les variables: vercel env ls"
 echo "   2. Redéployez: vercel --prod"
 echo "   3. Testez: https://votre-projet.vercel.app/api/debug/env"
+echo ""
+echo "⚠️  Zoho OAuth — vérifiez que CES DEUX URLs sont enregistrées dans api-console.zoho.com → Authorized Redirect URIs :"
+echo "   https://neobridge.vercel.app/api/auth/oauth/zoho/callback"
+echo "   http://localhost:3000/api/auth/oauth/zoho/callback"
 echo ""
