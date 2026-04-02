@@ -46,7 +46,7 @@ export function SprintPlanner({ initialTasks, projectId }: SprintPlannerProps) {
     setLaunching(true)
     setError(null)
     try {
-      const res = await fetch("/api/temporal/start", {
+      const res = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

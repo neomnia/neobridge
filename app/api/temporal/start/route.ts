@@ -1,7 +1,7 @@
 /**
  * POST /api/temporal/start
- * Starts a Temporal workflow (AgentSessionWorkflow or SprintPlanningWorkflow).
- * Body: { workflow: string; taskId?: string; projectId?: string; taskIds?: string[]; mode?: string }
+ * Starts a Temporal workflow (AgentSessionWorkflow, SprintPlanningWorkflow, or CIAutoFixWorkflow).
+ * Body: { workflow: string; taskId?: string; projectId?: string; taskIds?: string[]; mode?: string; prompt?: string; metadata?: object }
  */
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth/server"
@@ -9,10 +9,13 @@ import { requireAuth } from "@/lib/auth/server"
 const MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true"
 
 interface StartBody {
-  workflow: "agentSessionWorkflow" | "sprintPlanningWorkflow"
+  workflow: "agentSessionWorkflow" | "sprintPlanningWorkflow" | "ciAutoFixWorkflow"
   taskId?: string
   taskIds?: string[]
   projectId?: string
+  teamId?: string
+  prompt?: string
+  metadata?: Record<string, unknown>
   mode?: "single" | "sprint" | "auto"
 }
 

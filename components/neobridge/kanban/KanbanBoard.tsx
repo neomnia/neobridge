@@ -65,7 +65,7 @@ export function KanbanBoard({ initialTasks, projectId }: KanbanBoardProps) {
   const assignToAgent = async (task: ZohoTask) => {
     setAgentLoading(task.id)
     try {
-      await fetch("/api/temporal/start", {
+      await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workflow: "agentSessionWorkflow", taskId: task.id, projectId, mode: "single" }),

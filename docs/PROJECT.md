@@ -269,6 +269,15 @@ JSON response → state update
 - MongoDB is intended for NeoBridge training/knowledge data only.
 - Temporal persistence and visibility must use a supported backend (PostgreSQL/MySQL/other Temporal-supported stores), not MongoDB.
 
+### Temporal backlog verified from Notion (April 2026)
+
+After cross-checking the main `NeoBridge` page and its `Temporal — Backend Durable Execution` subpage with the current repository state:
+
+- **Already present in repo**: `app/api/temporal/start/route.ts`, `app/api/temporal/cancel/route.ts`, `app/api/temporal/active/route.ts`, `app/api/temporal/status/[id]/route.ts`, plus UI hooks/components that call these endpoints.
+- **Now scaffolded in repo**: `@temporalio/*` dependencies are declared and a dedicated `temporal/` worker directory now exists (`workflows`, `activities`, `worker.ts`).
+- **Still to verify operationally**: the end-to-end Railway deployment, service health, and real worker execution against the hosted Temporal cluster.
+- **Operational implication**: the app now has a concrete LangChain-to-Temporal integration path in code, but the live Railway deployment still needs validation with a working token/access path.
+
 ---
 
 ## Database Schema
@@ -444,7 +453,19 @@ Use these prefixes in release notes and status updates:
 
 ## Changelog
 
-### [2026-04-02]
+### [2026-04-02 — LangChain gateway]
+
+- **LangChain interface scaffolded for Railway/Temporal**: added a server-side agent endpoint that prepares a LangChain brief, stores traces in Mongo when configured, and then hands execution off to the Temporal start API.
+- **Files modified**: `app/api/agent/route.ts`, `lib/agents/langchain.ts`, `hooks/use-agent-session.ts`, `components/neobridge/kanban/KanbanBoard.tsx`, `components/neobridge/sprint/SprintPlanner.tsx`, `temporal/worker.ts`, `temporal/workflows/*`, `temporal/activities/index.ts`, `Dockerfile.temporal-worker`, `package.json`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact**: NeoBridge now has a concrete integration point for LangChain in front of Railway-hosted Temporal workflows.
+
+### [2026-04-02 — Notion alignment]
+
+- **Notion checklist aligned with repo state**: verified the official `NeoBridge` and `Temporal` Notion pages against the codebase and documented the remaining Temporal implementation gap.
+- **Files modified**: `docs/PROJECT.md`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact**: clearer view of what is already implemented versus what still needs delivery or validation.
+
+### [2026-04-02 — Deployment hygiene]
 
 - **Deployment secrets hygiene improved**: removed hardcoded Neon/Railway values from helper scripts and aligned setup flows around environment-provided secrets.
 - **Files modified**: `scripts/check-user-direct.ts`, `scripts/quick-check-user.js`, `scripts/setup-vercel-env.sh`, `scripts/vercel-api-setup.sh`, `docs/deployment/RAILWAY_TEMPORAL.md`, `STATUS.md`

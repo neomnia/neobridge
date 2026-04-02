@@ -119,6 +119,33 @@ DATABASE_URL=...
 MONGODB_URI=${{neobridge-mongo.MONGO_URL}}
 ```
 
+## Etape 6bis - Ajouter LangChain pour interfacer NeoBridge + Temporal + Mongo
+
+Conformement a la documentation Railway consultee le 2 avril 2026:
+
+- utiliser des **Service Variables** ou **Shared Variables** pour les secrets communs,
+- reutiliser les **Reference Variables** (`${{shared.KEY}}`, `${{SERVICE.VAR}}`),
+- privilegier le **Private Networking** via `temporal.railway.internal:7233` ou le domaine prive Railway du service,
+- si le worker vit dans un sous-dossier ou un Dockerfile dedie, definir `RAILWAY_DOCKERFILE_PATH`.
+
+Variables recommandees pour le service NeoBridge ou un futur worker dedie:
+
+```env
+TEMPORAL_ADDRESS=http://temporal.railway.internal:7233
+TEMPORAL_NAMESPACE=default
+MONGODB_URI=${{neobridge-mongo.MONGO_URL}}
+LANGCHAIN_DEFAULT_PROVIDER=anthropic
+LANGCHAIN_DEFAULT_MODEL=claude-3-5-sonnet-latest
+ANTHROPIC_API_KEY=${{shared.ANTHROPIC_API_KEY}}
+MISTRAL_API_KEY=${{shared.MISTRAL_API_KEY}}
+```
+
+Etat repo verifie:
+
+- `app/api/agent/route.ts` construit maintenant un **brief LangChain** puis delegue le lancement a `app/api/temporal/start/route.ts`.
+- `lib/agents/langchain.ts` choisit Anthropic ou Mistral selon les credentials resolves et journalise la session dans Mongo quand `MONGODB_URI` est disponible.
+- Les composants UI (`AgentConsole`, `KanbanBoard`, `SprintPlanner`) peuvent donc passer par une interface agent unique sans parler directement au worker Railway.
+
 ## Etape 7 - Verification rapide
 
 Depuis NeoBridge (ou local):
@@ -136,6 +163,14 @@ Puis verifier le statut:
 curl https://<ton-app>/api/temporal/active -H "Cookie: <session-auth>"
 ```
 
+## Etat actuel verifie dans ce repo (2026-04-02)
+
+- ✅ Les routes `app/api/temporal/*` existent et parlent a l'endpoint HTTP Temporal quand `TEMPORAL_ADDRESS` est configure.
+- ✅ Les composants UI (`KanbanBoard`, `SprintPlanner`, `use-agent-session`) savent declencher les workflows `agentSessionWorkflow` et `sprintPlanningWorkflow`.
+- ✅ Un scaffold applicatif `temporal/` est maintenant present avec `workflows`, `activities` et `worker.ts`.
+- ✅ Les dependances `@temporalio/*`, `langchain` et `mongodb` sont declarees dans `package.json` pour preparer le worker Railway.
+- ⚠️ Le deploiement Railway n'a pas encore pu etre verifie depuis cette session car le token CLI fourni renvoie `Unauthorized`.
+
 ## Fichiers lies dans ce repo
 
 - `docker-compose.temporal.yml`: stack locale de reference (Temporal + UI + PostgreSQL + MongoDB)
@@ -143,10 +178,21 @@ curl https://<ton-app>/api/temporal/active -H "Cookie: <session-auth>"
 - `app/api/temporal/cancel/route.ts`: annulation workflow (support `TEMPORAL_API_KEY`)
 - `app/api/temporal/status/[id]/route.ts`: statut workflow (support `TEMPORAL_API_KEY`)
 - `app/api/temporal/active/route.ts`: listing workflows actifs
+- `app/api/agent/route.ts`: passerelle LangChain → Temporal pour les sessions agent
+- `lib/agents/langchain.ts`: preparation du brief IA + persistence Mongo
+- `temporal/worker.ts`: worker Temporal Node a deployer sur Railway
+- `temporal/workflows/*`: workflows `agentSessionWorkflow`, `sprintPlanningWorkflow`, `ciAutoFixWorkflow`
+- `Dockerfile.temporal-worker`: image dediee pour un service worker Railway via `RAILWAY_DOCKERFILE_PATH`
 
 ## Changelog
 
-### [2026-04-02]
+### [2026-04-02 — Worker scaffold]
+
+- **LangChain + Temporal worker scaffold** : ajout d'une passerelle `app/api/agent`, d'un scaffold `temporal/` et d'un Dockerfile dedie pour preparer le worker Railway avec Mongo.
+- **Fichiers modifies** : `app/api/agent/route.ts`, `lib/agents/langchain.ts`, `temporal/worker.ts`, `temporal/workflows/*`, `temporal/activities/index.ts`, `Dockerfile.temporal-worker`, `package.json`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact** : integration concrete NeoBridge ↔ LangChain ↔ Temporal prete pour un deploiement Railway des que l'acces CLI/API est valide.
+
+### [2026-04-02 — Secrets hygiene]
 
 - **Sanitisation des credentials d'infra** : remplacement des tokens explicites par des placeholders et rappel d'usage via variables d'environnement locales/secrets manager.
 - **Fichiers modifies** : `docs/deployment/RAILWAY_TEMPORAL.md`, `scripts/setup-vercel-env.sh`, `scripts/vercel-api-setup.sh`
