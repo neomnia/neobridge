@@ -67,7 +67,7 @@ export async function getCurrentUser(): Promise<JWTPayload | null> {
  * between neosaas.tech and www.neosaas.tech.
  * Returns undefined for localhost / *.vercel.app (browser default scoping).
  */
-function getCookieDomain(): string | undefined {
+export function getCookieDomain(): string | undefined {
   const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || '';
   try {
     const { hostname } = new URL(appUrl);

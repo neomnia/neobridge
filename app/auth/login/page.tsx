@@ -138,8 +138,8 @@ export default function LoginPage() {
         description: userRoles.length > 0 ? `Role: ${userRoles.join(', ')}` : 'Loading your dashboard...'
       });
 
-      // Redirect to dashboard (platform admins have no companyId — that's fine)
-      router.push('/dashboard');
+      // Force full page reload to ensure cookies are read by server components
+      window.location.href = '/dashboard';
     } catch (error) {
       toast.error('An error occurred during login');
       console.error('Login error:', error);

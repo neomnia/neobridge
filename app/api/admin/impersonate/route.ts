@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/auth/server"
 import { db } from "@/db"
-import { users, userRoles } from "@/db/schema"
+import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
-import { cookies } from "next/headers"
-import { SignJWT } from "jose"
-
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "your-secret-key-min-32-characters-long"
-)
+import { createToken, setAuthCookie, removeAuthCookie } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,26 +52,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Créer un nouveau token JWT pour l'utilisateur cible
-    const token = await new SignJWT({
+    const token = createToken({
       userId: targetUser.id,
       email: targetUser.email,
       roles: targetUser.userRoles.map(ur => ur.role.name),
-      impersonatedBy: admin.userId, // Garder trace de l'admin qui impersonne
     })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("2h") // Session d'impersonnation limitée à 2h
-      .sign(JWT_SECRET)
 
     // Définir le cookie de session
-    const cookieStore = cookies()
-    cookieStore.set("auth-token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 2, // 2 heures
-      path: "/",
-    })
+    await setAuthCookie(token)
 
     // Log de l'action d'impersonnation (pour audit)
     console.log(`[IMPERSONATION] Admin ${admin.email} (${admin.userId}) is now impersonating user ${targetUser.email} (${targetUser.id})`)
@@ -104,28 +87,8 @@ export async function POST(request: NextRequest) {
 // Route pour terminer l'impersonnation et revenir au compte admin
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = cookies()
-    const token = cookieStore.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      )
-    }
-
-    // Récupérer l'ID de l'admin qui impersonne depuis le token
-    const payload = await fetch(request.url, {
-      headers: {
-        Cookie: `auth-token=${token}`
-      }
-    }).then(() => {
-      // Logique pour décoder le token et récupérer impersonatedBy
-      // Pour l'instant, on supprime simplement le cookie
-    })
-
     // Supprimer le cookie d'impersonnation
-    cookieStore.delete("auth-token")
+    await removeAuthCookie()
 
     return NextResponse.json({
       success: true,
