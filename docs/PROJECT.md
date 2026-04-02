@@ -251,6 +251,8 @@ JSON response → state update
   - `/dashboard` → global scope
   - `/dashboard/[teamId]` → team scope
   - `/dashboard/[teamId]/[projectId]/<section>` → project scope
+- **Project submenu visibility**: the dynamic project menu appears only when the current pathname contains an active project context (`/dashboard/[teamId]/[projectId]/...`). On a pure team page like `/dashboard/neomnia`, the contextual submenu is intentionally absent.
+- **Empty state behavior**: `app/(private)/dashboard/[teamId]/page.tsx` renders `0 projets` / `Aucun projet disponible` whenever `listTeamProjects(teamId)` returns no rows. In production mode, the data layer returns an empty list if no NeoBridge projects are stored and no Zoho connector is mapped.
 - **Project sections** currently map to `infrastructure`, `governance`, `orchestration`, `zoho`, and `settings`.
 - **Vercel linkage is optional**: a NeoBridge project may exist without any Vercel resource attached.
 - **Source of truth**: NeoBridge stays authoritative for project lifecycle. If a NeoBridge project is deleted, any linked Vercel project deletion must be an explicit, confirmed cascade action.
@@ -337,6 +339,11 @@ pnpm db:studio     # Open Drizzle Studio (visual DB browser)
 ---
 
 ## Changelog
+
+### [2026-04-02]
+- **Branch diagnostic for project visibility**: compared `synchrozoho`, `correction-erreurs`, and `claude/reconnect-zoho-integration-ESxWW`; the empty `/dashboard/[teamId]` screen matches the older `synchrozoho` flow, while the richer dynamic module menu is present on the newer branches and only activates for an active project route.
+- **Files referenced**: `app/(private)/dashboard/[teamId]/page.tsx`, `components/layout/private-dashboard/sidebar.tsx`, `lib/zoho-data.ts`, `docs/PROJECT.md`
+- **Impact**: the current screenshot is now explained: without synced NeoBridge projects / Zoho mapping / project route context, the UI stays on the team-level empty state and does not expose the project submenu.
 
 ### [2026-04-02]
 - **Infrastructure UX cleanup**: removed product-specific hardcoded copy from the project infrastructure screen, replaced placeholder actions with real navigation to settings, aligned server-side loading with the shared data layer instead of an internal self-fetch, and removed the duplicated local tab bar from the project layout so navigation stays sidebar-first.

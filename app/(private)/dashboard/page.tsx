@@ -1,12 +1,11 @@
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ImpersonationBanner } from '@/components/admin/impersonation-banner'
-import { Plus, Building2 } from 'lucide-react'
+import { Plus, Building2, FolderKanban, Rocket, Key } from 'lucide-react'
 
-export const metadata = { title: 'Mes espaces de travail — NeoBridge' }
+export const metadata = { title: 'Cockpit global — NeoBridge' }
 
 interface Team {
   id: string
@@ -28,65 +27,91 @@ const PLAN_LABEL: Record<string, string> = {
   enterprise: 'Enterprise',
 }
 
-const MOCK_TEAM: Team = {
-  id:           'neomnia',
-  name:         'Agence Neomnia',
-  slug:         'neomnia',
-  plan:         'pro',
-  projectCount: 2,
-}
-
-async function fetchTeams(): Promise<Team[]> {
+async function fetchDashboardData(): Promise<{ teams: Team[]; totalProjects: number; activeServices: number }> {
   try {
     const { db } = await import('@/db')
-    const { teams } = await import('@/db/schema')
-    const rows = await db.select().from(teams)
-    return rows.map(t => ({
-      id:           t.id,
-      name:         t.name,
-      slug:         t.slug,
-      plan:         (t.plan ?? 'free') as Team['plan'],
-      projectCount: 0,
-    }))
+    const { projects, serviceApiConfigs, teams } = await import('@/db/schema')
+    const { eq } = await import('drizzle-orm')
+
+    const [teamRows, projectRows, serviceRows] = await Promise.all([
+      db.select().from(teams),
+      db.select({ id: projects.id, teamId: projects.teamId }).from(projects),
+      db.select({ id: serviceApiConfigs.id }).from(serviceApiConfigs).where(eq(serviceApiConfigs.isActive, true)),
+    ])
+
+    const projectCountByTeam = new Map<string, number>()
+    for (const project of projectRows) {
+      if (!project.teamId) continue
+      projectCountByTeam.set(project.teamId, (projectCountByTeam.get(project.teamId) ?? 0) + 1)
+    }
+
+    return {
+      teams: teamRows.map((team) => ({
+        id: team.id,
+        name: team.name,
+        slug: team.slug,
+        plan: (team.plan ?? 'free') as Team['plan'],
+        projectCount: projectCountByTeam.get(team.id) ?? 0,
+      })),
+      totalProjects: projectRows.length,
+      activeServices: serviceRows.length,
+    }
   } catch {
-    return []
+    return { teams: [], totalProjects: 0, activeServices: 0 }
   }
 }
 
 export default async function DashboardPage() {
-  const teams = await fetchTeams()
-
-  // Mode mock : aucune team → une team fictive + redirect direct
-  if (teams.length === 0) {
-    redirect(`/dashboard/${MOCK_TEAM.slug}`)
-  }
-
-  // Une seule team → redirect direct
-  if (teams.length === 1) {
-    redirect(`/dashboard/${teams[0].slug ?? teams[0].id}`)
-  }
+  const { teams, totalProjects, activeServices } = await fetchDashboardData()
 
   return (
     <div className="space-y-6">
       <ImpersonationBanner />
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Mes espaces de travail</h1>
+          <h1 className="text-2xl font-bold">Cockpit global NeoBridge</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {teams.length} workspace{teams.length !== 1 ? 's' : ''}
+            {teams.length} workspace{teams.length !== 1 ? 's' : ''} · {totalProjects} projet{totalProjects !== 1 ? 's' : ''} · {activeServices} service{activeServices !== 1 ? 's' : ''} actif{activeServices !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/new">
-            <Plus className="h-4 w-4 mr-2" />
-            Nouveau workspace
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/dashboard/projects-pm">
+              <FolderKanban className="h-4 w-4 mr-2" />
+              Gestion PM
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/dashboard/deployments">
+              <Rocket className="h-4 w-4 mr-2" />
+              Déploiements
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/api-keys">
+              <Key className="h-4 w-4 mr-2" />
+              APIs NeoBridge
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Workspaces</p><p className="text-2xl font-bold mt-1">{teams.length}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Projets maîtrisés par NeoBridge</p><p className="text-2xl font-bold mt-1">{totalProjects}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Services connectés</p><p className="text-2xl font-bold mt-1">{activeServices}</p></CardContent></Card>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {teams.map((team) => (
+        {teams.length === 0 ? (
+          <Card className="sm:col-span-2 lg:col-span-3">
+            <CardContent className="py-16 text-center space-y-2">
+              <p className="font-medium text-muted-foreground">Aucun workspace NeoBridge détecté</p>
+              <p className="text-sm text-muted-foreground">Le cockpit global est prêt ; la prochaine étape consiste à rattacher ou créer les workspaces et projets.</p>
+            </CardContent>
+          </Card>
+        ) : teams.map((team) => (
           <Link key={team.id} href={`/dashboard/${team.slug ?? team.id}`}>
             <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
               <CardHeader className="pb-3">

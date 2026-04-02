@@ -9,6 +9,27 @@
 
 ## 🚨 Corrections Récentes
 
+### 2 avril 2026 - Écart validé entre la spec Notion et le dépôt `synchrozoho`
+
+**Contexte** : Vérification demandée après constat d’une régression fonctionnelle visible en preview : plus de cockpit global exploitable, plus de projets affichés, plus de synchronisation Zoho/Vercel apparente.
+
+**Constats validés** :
+
+- ✅ **La spec Notion confirme bien le besoin produit** : cockpit global NeoBridge, vue `/dashboard/projects-pm`, synchronisation des projets Vercel par team, vue globale Zoho Project Management et liaison vers l’espace projet NeoBridge.
+- ✅ **Le dépôt `synchrozoho` n’expose pas encore ce parcours complet** : pas de routes globales `projects-pm`, `deployments`, `costs`, `api-keys` trouvées dans le workspace courant.
+- ✅ **Le menu projet contextuel ne s’affiche que sur une route projet active** (`/dashboard/[teamId]/[projectId]/...`), jamais sur une simple vue équipe `/dashboard/[teamId]`.
+- ⚠️ **L’état vide actuel est cohérent avec le code** : `app/(private)/dashboard/[teamId]/page.tsx` affiche `0 projets` / `Aucun projet disponible` si `listTeamProjects(teamId)` ne remonte aucun projet NeoBridge ni mapping Zoho.
+
+**Fichiers concernés** :
+
+- `app/(private)/dashboard/[teamId]/page.tsx`
+- `components/layout/private-dashboard/sidebar.tsx`
+- `lib/zoho-data.ts`
+- `docs/PROJECT.md`
+- `STATUS.md`
+
+**Impact** : la régression perçue est maintenant documentée explicitement : la vision produit décrite dans Notion est correcte, mais elle n’est pas encore restaurée de bout en bout dans le ref courant `synchrozoho`.
+
 ### 2 avril 2026 - Audit NeoBridge : sidebar dynamique, synchro Vercel Teams et incident 500 Zoho
 
 **Contexte** : Reprise du cadrage NeoBridge à partir de la trame officielle et audit de l’architecture actuelle pour remplacer les onglets de pages par une sidebar dynamique. En parallèle, revue des erreurs `500` répétées sur les routes projet/Zoho en preview et en production.

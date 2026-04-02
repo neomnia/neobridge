@@ -28,6 +28,9 @@ import {
   Server,
   Bot,
   BarChart3,
+  KanbanSquare,
+  ScrollText,
+  DollarSign,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -70,7 +73,11 @@ const projectSubItems = [
 ]
 
 const navItems = [
-  { name: "Projets", href: "/dashboard", icon: Home },
+  { name: "Cockpit", href: "/dashboard", icon: Home },
+  { name: "Gestion PM", href: "/dashboard/projects-pm", icon: KanbanSquare },
+  { name: "Déploiements", href: "/dashboard/deployments", icon: ScrollText },
+  { name: "Coûts", href: "/dashboard/costs", icon: DollarSign },
+  { name: "APIs NeoBridge", href: "/dashboard/api-keys", icon: Key },
   { name: "Payments", href: "/dashboard/payments", icon: CreditCard },
   { name: "Profile", href: "/dashboard/profile", icon: User },
   { name: "Support", href: "/dashboard/support", icon: HelpCircle },
