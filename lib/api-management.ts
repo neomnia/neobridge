@@ -21,6 +21,8 @@ export type ApiType =
   | 'anthropic'
   | 'mistral'
   | 'notion'
+  | 'gemini'
+  | 'perplexity'
 
 // ---------------------------------------------------------------------------
 // Mock credentials (données fictives utilisées quand aucune config n'existe)
@@ -78,6 +80,12 @@ const MOCK_CREDENTIALS: Record<ApiType, Record<string, string>> = {
   notion: {
     apiKey: 'secret_mock_notion_xxxxxxxxxxxx',
     databaseId: 'mock-notion-database-id',
+  },
+  gemini: {
+    apiKey: 'mock_gemini_api_key_xxxxxxxxxxxx',
+  },
+  perplexity: {
+    apiKey: 'mock_perplexity_api_key_xxxxxxxxxxxx',
   },
 }
 

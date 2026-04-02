@@ -21,7 +21,7 @@ export interface AgentPlanInput {
 }
 
 export interface AgentPlanResult {
-  provider: 'anthropic' | 'mistral' | 'fallback'
+  provider: 'anthropic' | 'mistral' | 'gemini' | 'perplexity' | 'fallback'
   model: string
   summary: string
   storedToMongo: boolean
@@ -29,7 +29,7 @@ export interface AgentPlanResult {
 }
 
 type ResolvedModel = {
-  provider: 'anthropic' | 'mistral'
+  provider: 'anthropic' | 'mistral' | 'gemini' | 'perplexity'
   model: string
   client: ChatAnthropic | ChatOpenAI
 }
@@ -52,6 +52,7 @@ function buildFallbackSummary(input: AgentPlanInput, railwayContext?: string | n
 }
 
 async function resolveModel(teamId?: string): Promise<ResolvedModel | null> {
+  // 1. Anthropic (priority)
   const anthropic = await resolveCredential('anthropic', teamId).catch(() => null)
   if (anthropic?.apiKey) {
     const model = anthropic.model || 'claude-3-5-sonnet-latest'
@@ -66,6 +67,7 @@ async function resolveModel(teamId?: string): Promise<ResolvedModel | null> {
     }
   }
 
+  // 2. Mistral
   const mistral = await resolveCredential('mistral', teamId).catch(() => null)
   if (mistral?.apiKey) {
     const model = mistral.model || 'mistral-large-latest'
@@ -78,6 +80,42 @@ async function resolveModel(teamId?: string): Promise<ResolvedModel | null> {
         temperature: 0.2,
         configuration: {
           baseURL: 'https://api.mistral.ai/v1',
+        },
+      }),
+    }
+  }
+
+  // 3. Gemini (Google AI Studio — API compatible OpenAI)
+  const gemini = await resolveCredential('gemini', teamId).catch(() => null)
+  if (gemini?.apiKey) {
+    const model = gemini.model || 'gemini-2.0-flash'
+    return {
+      provider: 'gemini',
+      model,
+      client: new ChatOpenAI({
+        apiKey: gemini.apiKey,
+        model,
+        temperature: 0.2,
+        configuration: {
+          baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        },
+      }),
+    }
+  }
+
+  // 4. Perplexity (API compatible OpenAI)
+  const perplexity = await resolveCredential('perplexity', teamId).catch(() => null)
+  if (perplexity?.apiKey) {
+    const model = perplexity.model || 'sonar-pro'
+    return {
+      provider: 'perplexity',
+      model,
+      client: new ChatOpenAI({
+        apiKey: perplexity.apiKey,
+        model,
+        temperature: 0.2,
+        configuration: {
+          baseURL: 'https://api.perplexity.ai',
         },
       }),
     }

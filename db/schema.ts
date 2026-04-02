@@ -1633,7 +1633,7 @@ export type NewOAuthConnection = typeof oauthConnections.$inferInsert
  */
 export const adminApiKeys = pgTable('admin_api_keys', {
   id:          uuid('id').primaryKey().defaultRandom(),
-  type:        text('type').notNull(),        // vercel | railway | github_app | scaleway | neon | temporal | zoho | anthropic | mistral | notion
+  type:        text('type').notNull(),        // vercel | railway | github_app | scaleway | neon | temporal | zoho | anthropic | mistral | notion | gemini | perplexity
   label:       text('label').notNull(),
   credentials: text('credentials').notNull(), // jsonb chiffré via ENCRYPTION_KEY
   scope:       jsonb('scope'),                // teamId, orgId, installationId...
@@ -1673,7 +1673,7 @@ export const teamMembers = pgTable('team_members', {
 export const apiCredentials = pgTable('api_credentials', {
   id:          uuid('id').primaryKey().defaultRandom(),
   teamId:      uuid('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
-  type:        text('type').notNull(), // vercel | railway | github_app | scaleway | neon | temporal | zoho | anthropic | mistral | notion
+  type:        text('type').notNull(), // vercel | railway | github_app | scaleway | neon | temporal | zoho | anthropic | mistral | notion | gemini | perplexity
   label:       text('label').notNull(),
   credentials: text('credentials').notNull(), // jsonb chiffré via ENCRYPTION_KEY
   isActive:    boolean('is_active').notNull().default(true),

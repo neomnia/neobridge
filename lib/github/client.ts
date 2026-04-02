@@ -68,6 +68,8 @@ async function getStoredGitHubConfig(
 async function githubRequest<T>(
   path: string,
   options?: {
+    method?: string
+    body?: unknown
     environment?: GitHubEnvironment
     teamId?: string
   },
@@ -75,11 +77,14 @@ async function githubRequest<T>(
   const stored = await getStoredGitHubConfig(options?.environment ?? 'production', options?.teamId)
 
   const response = await fetch(`${GITHUB_API_URL}${path}`, {
+    method: options?.method ?? 'GET',
     headers: {
       Authorization: `Bearer ${stored.token}`,
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
+      ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
     },
+    body: options?.body ? JSON.stringify(options.body) : undefined,
     cache: 'no-store',
   })
 
@@ -256,4 +261,192 @@ export async function listRecentGitHubActivity(input?: {
     .filter((activity) => activity.timestamp > 0)
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, input?.limit ?? 8)
+}
+
+// ── Write Operations ─────────────────────────────────────────────────────────
+
+export interface GitHubPullRequest {
+  id: number
+  number: number
+  html_url: string
+  title: string
+  state: string
+  head: { ref: string; sha: string }
+  base: { ref: string }
+}
+
+/**
+ * Récupère un repository par son fullName (owner/repo)
+ */
+export async function getRepository(
+  repoFullName: string,
+  options?: { environment?: GitHubEnvironment; teamId?: string },
+): Promise<GitHubRepositorySummary> {
+  const repo = await githubRequest<any>(`/repos/${repoFullName}`, options)
+  return {
+    id: String(repo.id),
+    name: String(repo.name),
+    fullName: String(repo.full_name),
+    owner: String(repo.owner?.login || 'github'),
+    description: repo.description ?? null,
+    htmlUrl: String(repo.html_url || '#'),
+    visibility: repo.private ? 'private' : 'public',
+    isPrivate: Boolean(repo.private),
+    archived: Boolean(repo.archived),
+    defaultBranch: repo.default_branch ?? null,
+    pushedAt: repo.pushed_at ?? null,
+    updatedAt: repo.updated_at ?? null,
+    language: repo.language ?? null,
+  }
+}
+
+/**
+ * Crée un nouveau repository GitHub
+ */
+export async function createRepository(
+  name: string,
+  opts?: {
+    description?: string
+    isPrivate?: boolean
+    autoInit?: boolean
+  },
+  options?: { environment?: GitHubEnvironment; teamId?: string },
+): Promise<GitHubRepositorySummary> {
+  const repo = await githubRequest<any>('/user/repos', {
+    ...options,
+    method: 'POST',
+    body: {
+      name,
+      description: opts?.description ?? '',
+      private: opts?.isPrivate ?? true,
+      auto_init: opts?.autoInit ?? true,
+    },
+  })
+  return {
+    id: String(repo.id),
+    name: String(repo.name),
+    fullName: String(repo.full_name),
+    owner: String(repo.owner?.login || 'github'),
+    description: repo.description ?? null,
+    htmlUrl: String(repo.html_url || '#'),
+    visibility: repo.private ? 'private' : 'public',
+    isPrivate: Boolean(repo.private),
+    archived: Boolean(repo.archived),
+    defaultBranch: repo.default_branch ?? null,
+    pushedAt: repo.pushed_at ?? null,
+    updatedAt: repo.updated_at ?? null,
+    language: repo.language ?? null,
+  }
+}
+
+/**
+ * Récupère le SHA du HEAD d'une branche
+ */
+export async function getBranchSha(
+  repoFullName: string,
+  branchName: string,
+  options?: { environment?: GitHubEnvironment; teamId?: string },
+): Promise<string> {
+  const data = await githubRequest<any>(
+    `/repos/${repoFullName}/git/ref/heads/${encodeURIComponent(branchName)}`,
+    options,
+  )
+  return data.object.sha
+}
+
+/**
+ * Crée une branche à partir d'un SHA donné
+ */
+export async function createBranch(
+  repoFullName: string,
+  branchName: string,
+  fromSha: string,
+  options?: { environment?: GitHubEnvironment; teamId?: string },
+): Promise<{ ref: string; sha: string }> {
+  const data = await githubRequest<any>(`/repos/${repoFullName}/git/refs`, {
+    ...options,
+    method: 'POST',
+    body: {
+      ref: `refs/heads/${branchName}`,
+      sha: fromSha,
+    },
+  })
+  return { ref: data.ref, sha: data.object.sha }
+}
+
+/**
+ * Met à jour un fichier existant ou en crée un nouveau (via Contents API)
+ */
+export async function createOrUpdateFile(
+  repoFullName: string,
+  filePath: string,
+  content: string,
+  opts: {
+    message: string
+    branch: string
+    sha?: string // SHA du fichier existant (pour update)
+  },
+  options?: { environment?: GitHubEnvironment; teamId?: string },
+): Promise<{ sha: string; url: string }> {
+  const body: Record<string, unknown> = {
+    message: opts.message,
+    content: Buffer.from(content).toString('base64'),
+    branch: opts.branch,
+  }
+  if (opts.sha) body.sha = opts.sha
+
+  const data = await githubRequest<any>(
+    `/repos/${repoFullName}/contents/${filePath}`,
+    {
+      ...options,
+      method: 'PUT',
+      body,
+    },
+  )
+  return { sha: data.content.sha, url: data.content.html_url }
+}
+
+/**
+ * Crée une Pull Request
+ */
+export async function createPullRequest(
+  repoFullName: string,
+  opts: {
+    title: string
+    body?: string
+    head: string
+    base: string
+  },
+  options?: { environment?: GitHubEnvironment; teamId?: string },
+): Promise<GitHubPullRequest> {
+  return githubRequest<GitHubPullRequest>(`/repos/${repoFullName}/pulls`, {
+    ...options,
+    method: 'POST',
+    body: opts,
+  })
+}
+
+/**
+ * Récupère le contenu d'un fichier dans un repo
+ */
+export async function getFileContent(
+  repoFullName: string,
+  filePath: string,
+  opts?: { ref?: string },
+  options?: { environment?: GitHubEnvironment; teamId?: string },
+): Promise<{ content: string; sha: string; encoding: string } | null> {
+  try {
+    const params = opts?.ref ? `?ref=${encodeURIComponent(opts.ref)}` : ''
+    const data = await githubRequest<any>(
+      `/repos/${repoFullName}/contents/${filePath}${params}`,
+      options,
+    )
+    return {
+      content: Buffer.from(data.content, 'base64').toString('utf-8'),
+      sha: data.sha,
+      encoding: data.encoding,
+    }
+  } catch {
+    return null
+  }
 }

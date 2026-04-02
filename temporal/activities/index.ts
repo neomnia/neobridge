@@ -309,17 +309,140 @@ export async function persistExecutionTrace(payload: Record<string, unknown>) {
 
 // ── Repository Autofix ───────────────────────────────────────────────────────
 
-export async function runRepositoryAutofix(input: {
+interface AutofixInput {
   projectId: string
   taskId?: string
   workflowId?: string
-}) {
+  repoFullName?: string  // owner/repo
+  teamId?: string
+}
+
+interface CIFailure {
+  name: string
+  conclusion: string
+  url: string
+}
+
+async function fetchGitHubApi(
+  path: string,
+  token: string,
+  opts?: { method?: string; body?: unknown },
+) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    method: opts?.method ?? 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(opts?.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: opts?.body ? JSON.stringify(opts.body) : undefined,
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null)
+    const msg = payload?.message ?? res.statusText
+    throw new Error(`GitHub ${res.status}: ${msg}`)
+  }
+  return res.json()
+}
+
+export async function runRepositoryAutofix(input: AutofixInput) {
   try {
-    // Placeholder — will integrate GitHub Actions CI logs in future iteration
+    // 1. Resolve GitHub token
+    const { resolveCredential } = await import('@/lib/api-management')
+    const creds = await resolveCredential('github_token', input.teamId)
+    const token = creds?.token || creds?.personalAccessToken
+
+    if (!token || !input.repoFullName) {
+      return {
+        ok: false,
+        ...input,
+        note: !token
+          ? 'GitHub token not configured — cannot access CI logs.'
+          : 'Repository name (owner/repo) not provided.',
+        failures: [],
+      }
+    }
+
+    // 2. Fetch latest workflow runs
+    const runsData = await fetchGitHubApi(
+      `/repos/${input.repoFullName}/actions/runs?per_page=5&status=failure`,
+      token,
+    )
+    const runs = runsData.workflow_runs ?? []
+
+    if (runs.length === 0) {
+      return {
+        ok: true,
+        ...input,
+        note: 'No failed CI runs found — repository is green.',
+        failures: [],
+      }
+    }
+
+    // 3. Get the most recent failed run and its jobs
+    const lastFailedRun = runs[0]
+    const jobsData = await fetchGitHubApi(
+      `/repos/${input.repoFullName}/actions/runs/${lastFailedRun.id}/jobs`,
+      token,
+    )
+    const failedJobs: CIFailure[] = (jobsData.jobs ?? [])
+      .filter((j: any) => j.conclusion === 'failure')
+      .map((j: any) => ({
+        name: j.name,
+        conclusion: j.conclusion,
+        url: j.html_url,
+      }))
+
+    // 4. Fetch logs of the failed run (text, truncated to 20KB)
+    let logExcerpt = ''
+    try {
+      const logRes = await fetch(
+        `https://api.github.com/repos/${input.repoFullName}/actions/runs/${lastFailedRun.id}/logs`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+          },
+          redirect: 'follow',
+        },
+      )
+      if (logRes.ok) {
+        const buf = await logRes.arrayBuffer()
+        const text = new TextDecoder().decode(buf).slice(0, 20_000)
+        logExcerpt = text
+      }
+    } catch {
+      logExcerpt = 'Log download failed.'
+    }
+
+    // 5. Persist the CI failure data for analysis
+    await persistExecutionTrace({
+      kind: 'ci-autofix-analysis',
+      projectId: input.projectId,
+      workflow: 'ciAutoFixWorkflow',
+      repoFullName: input.repoFullName,
+      runId: lastFailedRun.id,
+      runUrl: lastFailedRun.html_url,
+      conclusion: lastFailedRun.conclusion,
+      failedJobs,
+      logExcerptLength: logExcerpt.length,
+      analyzedAt: new Date().toISOString(),
+    })
+
     return {
       ok: true,
       ...input,
-      note: 'Repository autofix placeholder executed. Connect GitHub and CI next.',
+      note: `Analyzed CI run #${lastFailedRun.run_number} — ${failedJobs.length} failed job(s).`,
+      runId: lastFailedRun.id,
+      runUrl: lastFailedRun.html_url,
+      runNumber: lastFailedRun.run_number,
+      branch: lastFailedRun.head_branch ?? 'main',
+      headSha: lastFailedRun.head_sha ?? null,
+      failures: failedJobs,
+      logExcerpt,
+      logExcerptLength: logExcerpt.length,
     }
   } catch (error) {
     await notifyServiceFailure('github', 'ciAutoFixWorkflow', input.projectId, error)
@@ -327,6 +450,139 @@ export async function runRepositoryAutofix(input: {
       ok: false,
       ...input,
       note: 'Repository autofix failed — GitHub service unavailable.',
+      failures: [],
+      logExcerpt: '',
+      logExcerptLength: 0,
+    }
+  }
+}
+
+// ── Open Autofix Pull Request ────────────────────────────────────────────────
+
+export interface AutofixPRInput {
+  projectId: string
+  repoFullName: string
+  baseBranch: string
+  headSha: string
+  runId: number
+  runNumber: number
+  failures: CIFailure[]
+  fixSummary: string  // LLM-generated summary of what was fixed
+  teamId?: string
+}
+
+export async function openAutofixPullRequest(input: AutofixPRInput) {
+  try {
+    const {
+      getBranchSha,
+      createBranch,
+      createOrUpdateFile,
+      createPullRequest,
+    } = await import('@/lib/github/client')
+
+    const branchName = `ci-autofix/${input.runId}`
+
+    // 1. Get base branch SHA
+    const baseSha = input.headSha || await getBranchSha(
+      input.repoFullName,
+      input.baseBranch,
+      { teamId: input.teamId },
+    )
+
+    // 2. Create fix branch
+    await createBranch(input.repoFullName, branchName, baseSha, { teamId: input.teamId })
+
+    // 3. Commit an autofix report file with the analysis + recommended patches
+    const failureList = input.failures
+      .map((f) => `- **${f.name}** → ${f.conclusion} ([logs](${f.url}))`)
+      .join('\n')
+
+    const reportContent = [
+      `# CI Autofix Report — Run #${input.runNumber}`,
+      '',
+      `> Generated by NeoBridge on ${new Date().toISOString()}`,
+      '',
+      `## Failed Jobs (${input.failures.length})`,
+      '',
+      failureList || '- No specific job failures detected',
+      '',
+      '## LLM Analysis & Recommended Fix',
+      '',
+      input.fixSummary,
+      '',
+      '## Status',
+      '',
+      '- [ ] Review the recommended fix above',
+      '- [ ] Apply the changes manually or approve this PR',
+      '- [ ] Re-run CI after merge',
+      '',
+      '---',
+      `*Automated by NeoBridge ciAutoFixWorkflow — [View CI Run](https://github.com/${input.repoFullName}/actions/runs/${input.runId})*`,
+    ].join('\n')
+
+    await createOrUpdateFile(
+      input.repoFullName,
+      `.neobridge/ci-autofix-${input.runId}.md`,
+      reportContent,
+      {
+        message: `fix(ci): autofix analysis for run #${input.runNumber}\n\nNeoBridge detected ${input.failures.length} failing job(s) and generated an analysis report.`,
+        branch: branchName,
+      },
+      { teamId: input.teamId },
+    )
+
+    // 4. Open Pull Request
+    const pr = await createPullRequest(
+      input.repoFullName,
+      {
+        title: `🤖 CI Autofix: ${input.failures.length} failure(s) in run #${input.runNumber}`,
+        body: [
+          `## NeoBridge CI Autofix`,
+          '',
+          `This PR was automatically created by the \`ciAutoFixWorkflow\` after detecting **${input.failures.length} failed job(s)** in [CI run #${input.runNumber}](https://github.com/${input.repoFullName}/actions/runs/${input.runId}).`,
+          '',
+          '### Failed Jobs',
+          failureList,
+          '',
+          '### Recommended Fix',
+          input.fixSummary,
+          '',
+          '---',
+          '> Review the analysis report in `.neobridge/` and apply the recommended changes.',
+        ].join('\n'),
+        head: branchName,
+        base: input.baseBranch,
+      },
+      { teamId: input.teamId },
+    )
+
+    // 5. Persist PR info
+    await persistExecutionTrace({
+      kind: 'ci-autofix-pr',
+      projectId: input.projectId,
+      workflow: 'ciAutoFixWorkflow',
+      repoFullName: input.repoFullName,
+      runId: input.runId,
+      prNumber: pr.number,
+      prUrl: pr.html_url,
+      branchName,
+      createdAt: new Date().toISOString(),
+    })
+
+    return {
+      ok: true,
+      prNumber: pr.number,
+      prUrl: pr.html_url,
+      branchName,
+    }
+  } catch (error) {
+    await notifyServiceFailure('github', 'ciAutoFixWorkflow', input.projectId, error)
+    return {
+      ok: false,
+      prNumber: null,
+      prUrl: null,
+      branchName: null,
+      error: error instanceof Error ? error.message : String(error),
     }
   }
 }

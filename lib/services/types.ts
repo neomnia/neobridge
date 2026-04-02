@@ -5,7 +5,8 @@
 
 // Service names supported by the platform
 export type ServiceName = 'stripe' | 'paypal' | 'scaleway' | 'resend' | 'aws' | 'lago'
-  | 'github_token' | 'notion' | 'railway' | 'anthropic' | 'mistral' | 'temporal' | 'zoho' | 'vercel' | 'github' | 'google';
+  | 'github_token' | 'notion' | 'railway' | 'anthropic' | 'mistral' | 'temporal' | 'zoho' | 'vercel' | 'github' | 'google'
+  | 'neon' | 'gemini' | 'perplexity';
 
 // Service types categorization
 export type ServiceType = 'payment' | 'email' | 'storage' | 'compute' | 'neobridge' | 'other';
