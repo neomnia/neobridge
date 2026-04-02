@@ -49,10 +49,11 @@ async function getZohoCreds(): Promise<{
     const c = cfg?.config as ZohoDbConfig | undefined
     if (c?.clientId && c?.clientSecret && c?.refreshToken) {
       return {
-        clientId:     c.clientId,
-        clientSecret: c.clientSecret,
-        refreshToken: c.refreshToken,
-        portalId:     c.portalId ?? process.env.ZOHO_PORTAL_ID ?? '',
+        clientId:     c.clientId.trim(),
+        clientSecret: c.clientSecret.trim(),
+        refreshToken: c.refreshToken.trim(),
+        // Sanitize portalId: trim whitespace + strip invisible chars (zero-width, BOM, etc.)
+        portalId:     (c.portalId ?? process.env.ZOHO_PORTAL_ID ?? '').trim().replace(/[\u200B-\u200D\uFEFF\u0000-\u001F]/g, ''),
         domain:       normalizeDomain(c.domain ?? process.env.ZOHO_DOMAIN),
       }
     }
@@ -66,10 +67,10 @@ async function getZohoCreds(): Promise<{
     )
   }
   return {
-    clientId:     ZOHO_CLIENT_ID,
-    clientSecret: ZOHO_CLIENT_SECRET,
-    refreshToken: ZOHO_REFRESH_TOKEN,
-    portalId:     process.env.ZOHO_PORTAL_ID ?? '',
+    clientId:     ZOHO_CLIENT_ID.trim(),
+    clientSecret: ZOHO_CLIENT_SECRET.trim(),
+    refreshToken: ZOHO_REFRESH_TOKEN.trim(),
+    portalId:     (process.env.ZOHO_PORTAL_ID ?? '').trim().replace(/[\u200B-\u200D\uFEFF\u0000-\u001F]/g, ''),
     domain:       normalizeDomain(process.env.ZOHO_DOMAIN),
   }
 }
