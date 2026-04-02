@@ -9,6 +9,23 @@
 
 ## 🚨 Corrections Récentes
 
+### 3 avril 2026 - Fix critique : boucle de redirection auth après déploiement
+
+**Contexte** : après déploiement, la connexion affichait le message de succès mais redirigait vers la page de login au lieu du dashboard. L'utilisateur ne pouvait accéder à aucune page privée.
+
+**Cause racine** : conflit de librairies JWT — `lib/auth.ts` créait les tokens avec `jsonwebtoken` (sync) tandis que `lib/auth/server.ts` les vérifiait avec `jose` (async). La vérification échouait silencieusement, provoquant `requireAuth()` → `redirect('/auth/login')`.
+
+**Changements** :
+
+- ✅ `lib/auth/server.ts` : remplacé `jose.jwtVerify()` par `verifyToken()` de `lib/auth.ts` (même librairie `jsonwebtoken` partout)
+- ✅ `lib/auth.ts` : exporté `getCookieDomain()` pour réutilisation dans les callbacks OAuth
+- ✅ 4 callbacks OAuth (GitHub, Google, Facebook, Microsoft) : ajout du paramètre `domain` au cookie pour cohérence avec le flux login classique
+- ✅ `app/(private)/dashboard/payment-methods/page.tsx` : corrigé `redirect('/login')` → `redirect('/auth/login')`
+
+**Fichiers modifiés** : `lib/auth/server.ts`, `lib/auth.ts`, `app/api/auth/oauth/github/callback/route.ts`, `app/api/auth/oauth/google/callback/route.ts`, `app/api/auth/oauth/facebook/callback/route.ts`, `app/api/auth/oauth/microsoft/callback/route.ts`, `app/(private)/dashboard/payment-methods/page.tsx`
+
+**Impact** : la connexion fonctionne correctement après déploiement, plus de boucle de redirection. Les cookies OAuth sont désormais cohérents avec le domaine configuré.
+
 ### 2 avril 2026 - Loading states, test par service et onboarding Zoho
 
 **Contexte** : les pages du cockpit affichaient une page blanche pendant le chargement serveur, et il manquait un moyen de tester chaque service API individuellement.

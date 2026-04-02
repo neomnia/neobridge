@@ -11,7 +11,7 @@ export default async function PaymentMethodsPage() {
   const user = await getCurrentUser()
 
   if (!user) {
-    redirect('/login')
+    redirect('/auth/login')
   }
 
   if (!user.companyId) {

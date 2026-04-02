@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { microsoftOAuthProvider } from "@/lib/oauth/providers/microsoft";
 import { serviceApiRepository } from "@/lib/services";
 import { OAuthUserService } from "@/lib/oauth/oauth-user-service";
+import { getCookieDomain } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -143,12 +144,14 @@ export async function GET(request: NextRequest) {
       // Redirection avec cookie d'authentification
       const response = NextResponse.redirect(new URL("/dashboard", request.url));
 
+      const domain = getCookieDomain();
       response.cookies.set("auth-token", result.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         maxAge: 60 * 60 * 24 * 7, // 7 jours
         path: "/",
+        ...(domain ? { domain } : {}),
       });
 
       response.cookies.delete("microsoft_oauth_state");

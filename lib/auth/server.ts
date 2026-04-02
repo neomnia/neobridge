@@ -1,8 +1,6 @@
 import { cookies } from "next/headers"
-import { jwtVerify } from "jose"
 import { redirect } from "next/navigation"
-
-const JWT_SECRET = process.env.NEXTAUTH_SECRET || "your-secret-key-here-change-in-production"
+import { verifyToken } from "@/lib/auth"
 
 export interface AuthUser {
   userId: string
@@ -14,7 +12,7 @@ export interface AuthUser {
 
 /**
  * Verify JWT token from cookies
- * This replaces the middleware auth logic for Next.js 16
+ * Uses the same jsonwebtoken library as token creation (lib/auth.ts)
  */
 export async function verifyAuth(): Promise<AuthUser | null> {
   const cookieStore = await cookies()
@@ -24,14 +22,8 @@ export async function verifyAuth(): Promise<AuthUser | null> {
     return null
   }
 
-  try {
-    const secret = new TextEncoder().encode(JWT_SECRET)
-    const { payload } = await jwtVerify(token, secret)
-    return payload as AuthUser
-  } catch (error) {
-    console.error("JWT verification failed:", error)
-    return null
-  }
+  const payload = verifyToken(token)
+  return payload as AuthUser | null
 }
 
 /**

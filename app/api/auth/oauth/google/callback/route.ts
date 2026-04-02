@@ -14,7 +14,7 @@ import { serviceApiRepository } from "@/lib/services";
 import { db } from "@/db";
 import { users, oauthConnections, userRoles, roles, companies } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { createToken, hashPassword } from "@/lib/auth";
+import { createToken, hashPassword, getCookieDomain } from "@/lib/auth";
 import crypto from "crypto";
 
 // Force cette route à être dynamique (pas de cache)
@@ -356,12 +356,14 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(new URL("/dashboard", request.url));
     
     // Définir le cookie d'authentification (doit être sur la réponse pour les redirections)
+    const domain = getCookieDomain();
     response.cookies.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7 jours
       path: "/",
+      ...(domain ? { domain } : {}),
     });
     
     // Supprimer le cookie de state CSRF
