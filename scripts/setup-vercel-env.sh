@@ -3,6 +3,14 @@
 # Script to configure Vercel environment variables
 # Run this script from your local machine where you're logged into Vercel CLI
 
+# ── Local dev override ─────────────────────────────────────────────────────────
+# Force l'URL de base pour le callback OAuth Zoho en développement local
+if [ "${NODE_ENV}" != "production" ]; then
+    export NEXT_PUBLIC_APP_URL="http://localhost:3000"
+    echo "🌐 Mode Développement : Callback Zoho → http://localhost:3000/api/auth/oauth/zoho/callback"
+fi
+# ──────────────────────────────────────────────────────────────────────────────
+
 echo "🚀 Configuration des variables d'environnement Vercel"
 echo "======================================================"
 echo ""

@@ -2,7 +2,7 @@
   "_meta": {
     "version": "1.0.0",
     "description": "Fichier de pilotage NeoBridge — suivi des bugs, statuts de services et décisions d'architecture.",
-    "last_updated": "2026-04-02T22:30:00Z",
+    "last_updated": "2026-04-02T23:00:00Z",
     "rule": "Ce fichier est mis à jour après chaque correction ou décision impactant l'architecture ou les services."
   },
 
@@ -112,6 +112,25 @@
       "required_action": "Configurer au moins un service email (Resend recommandé) dans Admin → API Management, puis cliquer 'Verify Key'."
     }
   ],
+
+  "development_rules": {
+    "oauth_integrity": {
+      "rule": "STRICT_DYNAMIC_CALLBACK",
+      "forbidden": "Hardcoder un redirect_uri OAuth (ex: 'https://neobridge.vercel.app/...' en dur dans le code source)",
+      "requirement": "Toujours utiliser process.env.NEXT_PUBLIC_APP_URL pour les initiations OAuth. Fallback autorisé : 'http://localhost:3000'. Jamais une URL de preview Vercel.",
+      "rationale": "Local/Prod parity — un dev doit pouvoir tester le flux OAuth complet sur localhost sans déployer."
+    },
+    "no_mock_on_error": {
+      "rule": "NO_SILENT_MOCK_FALLBACK",
+      "forbidden": "Retourner des données fictives (mock) sans exposer l'erreur réelle à l'UI",
+      "requirement": "Si isMockData=true ET syncError présent → afficher l'état 'Configuration Requise'. Le mock silencieux masque les bugs de configuration."
+    },
+    "service_ids": {
+      "rule": "NO_HARDCODED_IDS",
+      "forbidden": "Coder en dur un Portal ID, API key, endpoint dans le source",
+      "requirement": "Toute valeur de service transite par serviceApiRepository.listConfigs() ou process.env (variables canoniques uniquement)."
+    }
+  },
 
   "oauth_protocol": {
     "provider": "Zoho",
