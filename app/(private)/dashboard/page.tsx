@@ -22,6 +22,7 @@ import { listRailwayProjects } from '@/lib/railway/client'
 import { listVercelDeployments, listVercelTeams } from '@/lib/vercel/client'
 
 export const metadata = { title: 'Cockpit global — NeoBridge' }
+export const dynamic = 'force-dynamic'
 
 interface Team {
   id: string
@@ -215,35 +216,37 @@ async function fetchDashboardData(): Promise<{
       state: 'UPDATED',
     }))
 
-    try {
-      const vercelTeams = await listVercelTeams()
-      const deploymentGroups = await Promise.all(
-        vercelTeams.slice(0, 5).map(async (team) => {
-          const deployments = await listVercelDeployments({ vercelTeamId: team.id, limit: 4 }).catch(() => [])
-          return deployments.map((deployment) => {
-            const linkedProjectId = linkedProjectByResource.get(deployment.projectId ?? '') || linkedProjectByName.get(deployment.name.toLowerCase())
-            const linkedProject = projectSnapshots.find((project) => project.id === linkedProjectId)
-            return {
-              id: `vercel-${deployment.id}`,
-              title: deployment.name,
-              subtitle: `Déploiement Vercel · ${team.name}`,
-              href: linkedProject?.href ?? '/dashboard/deployments',
-              timestamp: new Date(deployment.createdAt),
-              source: 'vercel' as const,
-              state: deployment.state,
-            }
-          })
-        }),
-      )
-      recentActivity = recentActivity.concat(deploymentGroups.flat())
-    } catch {
-      // Vercel not configured or unreachable
-    }
+    // Paralléliser les 3 appels API externes avec timeout (5s max chacun)
+    const withTimeout = <T,>(promise: Promise<T>, ms = 5000): Promise<T> =>
+      Promise.race([promise, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))])
 
-    try {
-      const railwayProjects = await listRailwayProjects()
-      recentActivity = recentActivity.concat(
-        railwayProjects.slice(0, 3).map((project) => ({
+    const [vercelResult, railwayResult, githubResult] = await Promise.allSettled([
+      withTimeout(async function fetchVercel() {
+        const vercelTeams = await listVercelTeams()
+        const deploymentGroups = await Promise.all(
+          vercelTeams.slice(0, 5).map(async (team) => {
+            const deployments = await listVercelDeployments({ vercelTeamId: team.id, limit: 4 }).catch(() => [])
+            return deployments.map((deployment) => {
+              const linkedProjectId = linkedProjectByResource.get(deployment.projectId ?? '') || linkedProjectByName.get(deployment.name.toLowerCase())
+              const linkedProject = projectSnapshots.find((project) => project.id === linkedProjectId)
+              return {
+                id: `vercel-${deployment.id}`,
+                title: deployment.name,
+                subtitle: `Déploiement Vercel · ${team.name}`,
+                href: linkedProject?.href ?? '/dashboard/deployments',
+                timestamp: new Date(deployment.createdAt),
+                source: 'vercel' as const,
+                state: deployment.state,
+              }
+            })
+          }),
+        )
+        return deploymentGroups.flat()
+      }()),
+
+      withTimeout(async function fetchRailway() {
+        const railwayProjects = await listRailwayProjects()
+        return railwayProjects.slice(0, 3).map((project) => ({
           id: `railway-${project.id}`,
           title: project.name,
           subtitle: `Mise à jour Railway · ${project.services?.length ?? 0} service(s)`,
@@ -251,19 +254,14 @@ async function fetchDashboardData(): Promise<{
           timestamp: project.updatedAt ? new Date(project.updatedAt) : project.createdAt ? new Date(project.createdAt) : null,
           source: 'railway' as const,
           state: 'LINKED',
-        })),
-      )
-    } catch {
-      // Railway not configured or unreachable
-    }
+        }))
+      }()),
 
-    try {
-      const githubActivity = await listRecentGitHubActivity({ limit: 5 })
-      recentActivity = recentActivity.concat(
-        githubActivity.map((activity) => {
+      withTimeout(async function fetchGitHub() {
+        const githubActivity = await listRecentGitHubActivity({ limit: 5 })
+        return githubActivity.map((activity) => {
           const linkedProjectId = linkedProjectByGithubRef.get(activity.fullName.toLowerCase()) || linkedProjectByGithubRef.get(activity.repoName.toLowerCase())
           const linkedProject = projectSnapshots.find((project) => project.id === linkedProjectId)
-
           return {
             id: `github-${activity.id}`,
             title: activity.fullName,
@@ -275,11 +273,13 @@ async function fetchDashboardData(): Promise<{
             source: 'github' as const,
             state: activity.state,
           }
-        }),
-      )
-    } catch {
-      // GitHub not configured or unreachable
-    }
+        })
+      }()),
+    ])
+
+    if (vercelResult.status === 'fulfilled') recentActivity = recentActivity.concat(vercelResult.value)
+    if (railwayResult.status === 'fulfilled') recentActivity = recentActivity.concat(railwayResult.value)
+    if (githubResult.status === 'fulfilled') recentActivity = recentActivity.concat(githubResult.value)
 
     recentActivity = recentActivity
       .sort((a, b) => (b.timestamp?.getTime() ?? 0) - (a.timestamp?.getTime() ?? 0))
