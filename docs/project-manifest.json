@@ -1,0 +1,239 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "last_updated": "2026-04-02",
+    "description": "Manifeste machine-readable du projet NeoBridge. À mettre à jour à chaque itération.",
+    "sources": [
+      "docs/CONTEXT.md",
+      "docs/ARCHITECTURE.md",
+      "docs/SPEC_TEMPLATE.md",
+      "docs/RULES.md"
+    ]
+  },
+
+  "context": {
+    "project_name": "NeoBridge",
+    "vision": "Orchestrateur de services IA (RAG) entre MongoDB et SharePoint, s'appuyant sur une base SaaS multi-tenant (NeoSaaS) pour piloter, configurer et monitorer des pipelines de traitement documentaire.",
+    "golden_rule": "Ne jamais coder en dur un ID, une clé API ou un endpoint. Toute configuration de service transite par le Service-Mapping stocké dans MongoDB via lib/services/repository.ts.",
+    "principles": [
+      "Configuration 100% base de données — aucun secret métier dans le code ou .env (sauf credentials d'infrastructure indispensables).",
+      "TypeScript strict — tout nouveau type dans @/types ou @/lib/services/types.ts.",
+      "Un service = un contrat — champs obligatoires définis dans ARCHITECTURE.md.",
+      "Logs avant abandon — en cas d'erreur de connexion, logger et stopper. Ne pas réécrire la logique.",
+      "Vérifier git status avant chaque tâche — ne jamais commencer sur un arbre de travail sale."
+    ],
+    "what_it_is_not": [
+      "Pas un simple CRUD — c'est un orchestrateur de flux.",
+      "Pas un projet monolithique figé — les services sont déclarés dynamiquement via le Service-Mapping.",
+      "Pas un projet sans types — tout est TypeScript strict."
+    ]
+  },
+
+  "stack": [
+    {
+      "layer": "Pilot / Frontend",
+      "technology": "Vercel + Next.js 15 (App Router)",
+      "role": "Interface admin, dashboard, API routes"
+    },
+    {
+      "layer": "Auth / Logs",
+      "technology": "Neon PostgreSQL + Drizzle ORM",
+      "role": "Authentification JWT, logs système, config plateforme"
+    },
+    {
+      "layer": "Knowledge",
+      "technology": "MongoDB",
+      "role": "Service-Mapping, configurations IA, base de connaissances RAG"
+    },
+    {
+      "layer": "Workers",
+      "technology": "Railway",
+      "role": "Jobs asynchrones, pipelines RAG, tâches longues"
+    },
+    {
+      "layer": "LLM",
+      "technology": "Claude API (Anthropic)",
+      "role": "Extraction, résumé, embedding, RAG"
+    },
+    {
+      "layer": "UI",
+      "technology": "Tailwind CSS + shadcn/ui",
+      "role": "Composants interface"
+    },
+    {
+      "layer": "Email",
+      "technology": "Resend / Scaleway TEM / AWS SES",
+      "role": "Notifications transactionnelles"
+    },
+    {
+      "layer": "Paiements",
+      "technology": "Stripe",
+      "role": "Abonnements et facturation"
+    }
+  ],
+
+  "architecture": {
+    "pipeline_flow": [
+      { "step": 1, "name": "Ingestion", "description": "Une source (Notion, SharePoint) pousse ou expose des documents." },
+      { "step": 2, "name": "Mapping", "description": "MongoDB résout quel service/pipeline traite ces documents (Service-Mapping)." },
+      { "step": 3, "name": "Traitement LLM", "description": "Claude API (via app/api/llm/) génère embeddings, résumés, extractions." },
+      { "step": 4, "name": "Restitution", "description": "Le résultat est écrit vers la cible configurée (SharePoint, API tierce, DB)." },
+      { "step": 5, "name": "Logs", "description": "Chaque étape écrit dans Neon (system_logs) via les Server Actions." }
+    ],
+    "active_service_contract": {
+      "description": "Un service est Actif s'il remplit tous ces champs. Un service sans isActive: true est invisible pour les pipelines.",
+      "required_fields": [
+        { "field": "serviceName", "type": "ServiceName", "description": "Identifiant unique du service ('anthropic', 'notion', 'railway', …)" },
+        { "field": "serviceType", "type": "ServiceType", "description": "Catégorie : 'neobridge', 'compute', 'payment', 'email', …" },
+        { "field": "environment", "type": "ServiceEnvironment", "description": "'production' | 'test' | 'sandbox'" },
+        { "field": "isActive", "type": "boolean", "description": "Doit être true — sinon le service est ignoré par l'orchestrateur" },
+        { "field": "isDefault", "type": "boolean", "description": "Marque le service par défaut pour son type" },
+        { "field": "config.api_key", "type": "string", "description": "Clé API chiffrée (AES-256-GCM)" },
+        { "field": "config.endpoint", "type": "string", "description": "URL de l'endpoint du service" }
+      ],
+      "types_file": "lib/services/types.ts"
+    },
+    "key_files": [
+      { "role": "Types globaux", "path": "types/index.ts" },
+      { "role": "Types services", "path": "lib/services/types.ts" },
+      { "role": "Repository services", "path": "lib/services/repository.ts" },
+      { "role": "Initializers services", "path": "lib/services/initializers.ts" },
+      { "role": "Routes API services", "path": "app/api/services/" },
+      { "role": "Routes API LLM", "path": "app/api/llm/" },
+      { "role": "Actions serveur", "path": "app/actions/" },
+      { "role": "Schéma DB (Neon)", "path": "db/schema.ts" },
+      { "role": "Config Drizzle", "path": "drizzle.config.ts" },
+      { "role": "Composants admin", "path": "components/admin/" },
+      { "role": "Composants NeoBridge", "path": "components/neobridge/" }
+    ],
+    "directory_structure": {
+      "app": {
+        "(auth)": "Routes publiques (login, register, OAuth)",
+        "(errors)": "Pages d'erreur (404, 500, 503)",
+        "(private)/admin": "Dashboard admin (api-management, settings, users)",
+        "(private)/dashboard": "Dashboard client",
+        "actions": "Server Actions Next.js",
+        "api/services": "CRUD Service-Mapping",
+        "api/llm": "Endpoints LLM (Claude API)",
+        "api/auth": "Authentification + OAuth",
+        "api/stripe": "Webhooks Stripe"
+      },
+      "lib": {
+        "services": "Orchestration des services (types, repository, initializers)",
+        "connectors": "Connecteurs externes (GitHub, Vercel)",
+        "auth": "Logique d'authentification",
+        "data": "Requêtes DB (Neon/Drizzle)",
+        "utils.ts": "Utilitaires généraux"
+      },
+      "types": "Types TypeScript globaux partagés",
+      "db": "Schéma Drizzle ORM (Neon PostgreSQL)",
+      "drizzle": "Migrations SQL",
+      "scripts": "Scripts de build et maintenance",
+      "docs": "Documentation projet"
+    }
+  },
+
+  "spec_template": {
+    "description": "Remplir ce template avant toute demande d'implémentation.",
+    "fields": {
+      "title": "Nom court de la tâche",
+      "date": "YYYY-MM-DD",
+      "branch": "claude/[description]-[id]",
+      "files_concerned": "Liste des fichiers à créer ou modifier",
+      "objective": "Une phrase claire sur ce qu'on veut atteindre et pourquoi.",
+      "input": [
+        { "parameter": "string", "type": "string", "source": "JWT cookie | Body JSON | URL param", "example": "string" }
+      ],
+      "output": {
+        "success": { "status": 200, "shape": { "success": true, "data": {} } },
+        "error": { "status": "400 | 401 | 404 | 500", "shape": { "success": false, "error": "string" } }
+      },
+      "technical_constraints": [
+        "Utiliser serviceApiRepository.listConfigs() — ne pas écrire de requête SQL directe.",
+        "Typer la réponse dans @/types ou @/lib/services/types.ts.",
+        "Loguer les erreurs avec console.error + retourner une réponse d'erreur. Ne pas réécrire la logique.",
+        "Ne pas modifier .env.example sans signaler le changement."
+      ],
+      "definition_of_done": [
+        "Test 1 : [Action utilisateur → Résultat attendu]",
+        "Test 2 : [Cas limite → Comportement attendu]",
+        "Test 3 : [Cas d'erreur → Message d'erreur attendu]"
+      ],
+      "out_of_scope": "Ce que cette tâche ne doit PAS faire."
+    }
+  },
+
+  "rules": {
+    "before_starting": [
+      "Toujours vérifier git status avant de commencer une nouvelle tâche.",
+      "Lire CONTEXT.md si on entre sur le projet ou après une interruption longue.",
+      "Créer une branche dédiée par tâche : claude/[description]-[id]."
+    ],
+    "typescript": [
+      "Toute nouvelle fonction doit être typée en TypeScript. Pas de any implicite.",
+      "Les nouveaux types vont dans @/types/index.ts (types globaux) ou @/lib/services/types.ts (types services).",
+      "Pas de // @ts-ignore sans commentaire expliquant pourquoi et avec un ticket associé."
+    ],
+    "ids_and_config": [
+      "Interdiction de coder en dur un ID, une clé API ou un endpoint dans le code source ou dans les tests.",
+      "Tout service externe doit être résolu via serviceApiRepository.listConfigs().",
+      "Interdiction de modifier .env.example sans le signaler dans le message de commit et dans la PR."
+    ],
+    "error_handling": {
+      "rule": "Si une erreur de connexion survient, ne pas réécrire la logique. Loguer l'erreur avec console.error et retourner une réponse d'erreur claire.",
+      "mandatory_pattern": "try { /* logique */ } catch (error) { console.error('[NomDeLaRoute] Erreur:', error); return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 }); }",
+      "no_empty_catch": true
+    },
+    "security": [
+      "Vérifier l'authentification (getCurrentUser()) au début de chaque API route et Server Action protégée.",
+      "Ne jamais committer .env — seul .env.example (sans valeurs réelles) est versionné.",
+      "Les secrets sont stockés chiffrés (AES-256-GCM) via le Service-Mapping. Jamais en clair."
+    ],
+    "database": [
+      "Toute modification du schéma (db/schema.ts) doit s'accompagner d'une migration Drizzle.",
+      "Pas de db:hard-reset en production. Réservé aux environnements de preview/dev.",
+      "Vérifier db-ensure-columns.ts après ajout de nouvelles colonnes critiques."
+    ],
+    "structure": [
+      "Ne pas créer de fichier en dehors des emplacements définis dans ARCHITECTURE.md.",
+      "Les composants NeoBridge-spécifiques vont dans components/neobridge/.",
+      "Les composants shadcn/ui (components/ui/) ne doivent pas être modifiés directement.",
+      "Les requêtes DB vont dans lib/data/ (lecture) ou app/actions/ (mutations Server Actions)."
+    ],
+    "commits": {
+      "format": "type(scope): description courte",
+      "types": ["feat", "fix", "refactor", "docs", "chore", "test"],
+      "no_skip_hooks": true,
+      "no_force_push_main": true
+    },
+    "pr_checklist": [
+      "pnpm build passe sans erreur TypeScript.",
+      "Aucun console.log de debug laissé.",
+      "Aucun secret ou credential dans le diff.",
+      "Les nouveaux types sont dans @/types ou @/lib/services/types.ts.",
+      ".env.example est à jour si de nouvelles variables ont été ajoutées.",
+      "La spec de la tâche a été remplie et les 3 tests passent."
+    ],
+    "forbidden": [
+      { "forbidden": "Coder en dur un api_key ou endpoint", "alternative": "Utiliser serviceApiRepository.listConfigs()" },
+      { "forbidden": "Modifier .env.example silencieusement", "alternative": "Signaler dans le commit + PR" },
+      { "forbidden": "Réécrire la logique de connexion sur erreur", "alternative": "Logger + retourner erreur" },
+      { "forbidden": "Utiliser any implicite en TypeScript", "alternative": "Définir un type dans @/types" },
+      { "forbidden": "Commencer sans git status", "alternative": "Toujours vérifier l'état du repo" },
+      { "forbidden": "Pusher directement sur main", "alternative": "Créer une branche + PR" },
+      { "forbidden": "Ignorer un catch", "alternative": "Logger l'erreur avec console.error" },
+      { "forbidden": "Modifier components/ui/ directement", "alternative": "Créer un wrapper dans components/neobridge/ ou components/admin/" }
+    ]
+  },
+
+  "services_registry": {
+    "description": "Liste des ServiceName connus. Source de vérité : lib/services/types.ts.",
+    "known_services": [
+      "stripe", "paypal", "scaleway", "resend", "aws", "lago",
+      "github_token", "notion", "railway", "anthropic", "mistral",
+      "temporal", "zoho", "vercel", "github", "google"
+    ],
+    "service_types": ["payment", "email", "storage", "compute", "neobridge", "other"],
+    "environments": ["production", "test", "sandbox"]
+  }
+}
