@@ -20,9 +20,14 @@ import {
 import { extractGitHubRepoReferences, listRecentGitHubActivity } from '@/lib/github/client'
 import { listRailwayProjects } from '@/lib/railway/client'
 import { listVercelDeployments, listVercelTeams } from '@/lib/vercel/client'
+import { Suspense } from 'react'
+import { db } from '@/db'
+import { adminApiKeys, projectApps, projectConnectors, projects, serviceApiConfigs, teams } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 export const metadata = { title: 'Cockpit global — NeoBridge' }
 export const dynamic = 'force-dynamic'
+export const maxDuration = 30
 
 interface Team {
   id: string
@@ -81,7 +86,7 @@ function formatRelativeDate(date: Date | null) {
   return formatDistanceToNow(date, { addSuffix: true, locale: fr })
 }
 
-async function fetchDashboardData(): Promise<{
+async function fetchDashboardDbData(): Promise<{
   teams: Team[]
   totalProjects: number
   activeServices: number
@@ -90,13 +95,14 @@ async function fetchDashboardData(): Promise<{
   projectsWithZoho: number
   projectsWithRailway: number
   recentProjects: RecentProject[]
-  recentActivity: ActivityItem[]
+  activeServiceNames: string[]
+  projectSnapshots: RecentProject[]
+  linkedProjectByResource: Record<string, string>
+  linkedProjectByName: Record<string, string>
+  linkedProjectByGithubRef: Record<string, string>
+  projectActivity: ActivityItem[]
 }> {
   try {
-    const { db } = await import('@/db')
-    const { adminApiKeys, projectApps, projectConnectors, projects, serviceApiConfigs, teams } = await import('@/db/schema')
-    const { eq } = await import('drizzle-orm')
-
     const [teamRows, projectRows, appRows, connectorRows, serviceRows, legacyServiceRows] = await Promise.all([
       db.select().from(teams),
       db.select({
@@ -206,7 +212,7 @@ async function fetchDashboardData(): Promise<{
       }
     }
 
-    let recentActivity: ActivityItem[] = recentProjects.map((project) => ({
+    const projectActivity: ActivityItem[] = recentProjects.map((project) => ({
       id: `project-${project.id}`,
       title: project.name,
       subtitle: `Projet NeoBridge · ${project.teamName}`,
@@ -216,13 +222,73 @@ async function fetchDashboardData(): Promise<{
       state: 'UPDATED',
     }))
 
-    // Paralléliser les appels API externes — SKIP si le service n'est pas configuré
+    return {
+      teams: teamRows.map((team) => ({
+        id: team.id,
+        name: team.name,
+        slug: team.slug,
+        plan: (team.plan ?? 'free') as Team['plan'],
+        projectCount: projectCountByTeam.get(team.id) ?? 0,
+      })),
+      totalProjects: projectRows.length,
+      activeServices: activeServiceNames.size,
+      projectsWithVercel,
+      projectsWithGithub,
+      projectsWithZoho,
+      projectsWithRailway,
+      recentProjects,
+      activeServiceNames: Array.from(activeServiceNames),
+      projectSnapshots,
+      linkedProjectByResource: Object.fromEntries(linkedProjectByResource),
+      linkedProjectByName: Object.fromEntries(linkedProjectByName),
+      linkedProjectByGithubRef: Object.fromEntries(linkedProjectByGithubRef),
+      projectActivity,
+    }
+  } catch {
+    return {
+      teams: [],
+      totalProjects: 0,
+      activeServices: 0,
+      projectsWithVercel: 0,
+      projectsWithGithub: 0,
+      projectsWithZoho: 0,
+      projectsWithRailway: 0,
+      recentProjects: [],
+      activeServiceNames: [],
+      projectSnapshots: [],
+      linkedProjectByResource: {},
+      linkedProjectByName: {},
+      linkedProjectByGithubRef: {},
+      projectActivity: [],
+    }
+  }
+}
+
+async function ExternalActivityList({
+  activeServiceNames,
+  projectSnapshots,
+  linkedProjectByResource,
+  linkedProjectByName,
+  linkedProjectByGithubRef,
+  projectActivity,
+}: {
+  activeServiceNames: string[]
+  projectSnapshots: RecentProject[]
+  linkedProjectByResource: Record<string, string>
+  linkedProjectByName: Record<string, string>
+  linkedProjectByGithubRef: Record<string, string>
+  projectActivity: ActivityItem[]
+}) {
+  let recentActivity: ActivityItem[] = [...projectActivity]
+
+  try {
+    const serviceSet = new Set(activeServiceNames)
     const withTimeout = <T,>(promise: Promise<T>, ms = 3000): Promise<T> =>
       Promise.race([promise, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))])
 
-    const hasVercelService = activeServiceNames.has('vercel')
-    const hasRailwayService = activeServiceNames.has('railway')
-    const hasGithubService = activeServiceNames.has('github_token') || activeServiceNames.has('github_app')
+    const hasVercelService = serviceSet.has('vercel')
+    const hasRailwayService = serviceSet.has('railway')
+    const hasGithubService = serviceSet.has('github_token') || serviceSet.has('github_app')
 
     const [vercelResult, railwayResult, githubResult] = await Promise.allSettled([
       hasVercelService ? withTimeout(async function fetchVercel() {
@@ -231,7 +297,7 @@ async function fetchDashboardData(): Promise<{
           vercelTeams.slice(0, 5).map(async (team) => {
             const deployments = await listVercelDeployments({ vercelTeamId: team.id, limit: 4 }).catch(() => [])
             return deployments.map((deployment) => {
-              const linkedProjectId = linkedProjectByResource.get(deployment.projectId ?? '') || linkedProjectByName.get(deployment.name.toLowerCase())
+              const linkedProjectId = linkedProjectByResource[deployment.projectId ?? ''] || linkedProjectByName[deployment.name.toLowerCase()]
               const linkedProject = projectSnapshots.find((project) => project.id === linkedProjectId)
               return {
                 id: `vercel-${deployment.id}`,
@@ -264,7 +330,7 @@ async function fetchDashboardData(): Promise<{
       hasGithubService ? withTimeout(async function fetchGitHub() {
         const githubActivity = await listRecentGitHubActivity({ limit: 5 })
         return githubActivity.map((activity) => {
-          const linkedProjectId = linkedProjectByGithubRef.get(activity.fullName.toLowerCase()) || linkedProjectByGithubRef.get(activity.repoName.toLowerCase())
+          const linkedProjectId = linkedProjectByGithubRef[activity.fullName.toLowerCase()] || linkedProjectByGithubRef[activity.repoName.toLowerCase()]
           const linkedProject = projectSnapshots.find((project) => project.id === linkedProjectId)
           return {
             id: `github-${activity.id}`,
@@ -284,41 +350,37 @@ async function fetchDashboardData(): Promise<{
     if (vercelResult.status === 'fulfilled') recentActivity = recentActivity.concat(vercelResult.value)
     if (railwayResult.status === 'fulfilled') recentActivity = recentActivity.concat(railwayResult.value)
     if (githubResult.status === 'fulfilled') recentActivity = recentActivity.concat(githubResult.value)
-
-    recentActivity = recentActivity
-      .sort((a, b) => (b.timestamp?.getTime() ?? 0) - (a.timestamp?.getTime() ?? 0))
-      .slice(0, 8)
-
-    return {
-      teams: teamRows.map((team) => ({
-        id: team.id,
-        name: team.name,
-        slug: team.slug,
-        plan: (team.plan ?? 'free') as Team['plan'],
-        projectCount: projectCountByTeam.get(team.id) ?? 0,
-      })),
-      totalProjects: projectRows.length,
-      activeServices: activeServiceNames.size,
-      projectsWithVercel,
-      projectsWithGithub,
-      projectsWithZoho,
-      projectsWithRailway,
-      recentProjects,
-      recentActivity,
-    }
   } catch {
-    return {
-      teams: [],
-      totalProjects: 0,
-      activeServices: 0,
-      projectsWithVercel: 0,
-      projectsWithGithub: 0,
-      projectsWithZoho: 0,
-      projectsWithRailway: 0,
-      recentProjects: [],
-      recentActivity: [],
-    }
+    // External API errors — show project activity only
   }
+
+  recentActivity = recentActivity
+    .sort((a, b) => (b.timestamp?.getTime() ?? 0) - (a.timestamp?.getTime() ?? 0))
+    .slice(0, 8)
+
+  if (recentActivity.length === 0) {
+    return <p className="text-sm text-muted-foreground">Aucune activité récente visible pour le moment.</p>
+  }
+
+  return (
+    <>
+      {recentActivity.map((item) => (
+        <Link key={item.id} href={item.href} className="block rounded-lg border p-3 hover:border-primary/50 transition-colors">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-medium text-sm">{item.title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{item.subtitle}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge variant={STATE_VARIANT[item.state] ?? 'outline'}>{item.state}</Badge>
+              <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">{formatRelativeDate(item.timestamp)}</p>
+        </Link>
+      ))}
+    </>
+  )
 }
 
 export default async function DashboardPage() {
@@ -331,8 +393,13 @@ export default async function DashboardPage() {
     projectsWithZoho,
     projectsWithRailway,
     recentProjects,
-    recentActivity,
-  } = await fetchDashboardData()
+    activeServiceNames,
+    projectSnapshots,
+    linkedProjectByResource,
+    linkedProjectByName,
+    linkedProjectByGithubRef,
+    projectActivity,
+  } = await fetchDashboardDbData()
 
   return (
     <div className="space-y-6">
@@ -377,7 +444,7 @@ export default async function DashboardPage() {
         <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Workspaces</p><p className="text-2xl font-bold mt-1">{teams.length}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Projets NeoBridge</p><p className="text-2xl font-bold mt-1">{totalProjects}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Services actifs</p><p className="text-2xl font-bold mt-1">{activeServices}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Mouvements récents</p><p className="text-2xl font-bold mt-1">{recentActivity.length}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Mouvements récents</p><p className="text-2xl font-bold mt-1">{projectActivity.length}</p></CardContent></Card>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
@@ -394,25 +461,28 @@ export default async function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentActivity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucune activité récente visible pour le moment.</p>
-            ) : (
-              recentActivity.map((item) => (
-                <Link key={item.id} href={item.href} className="block rounded-lg border p-3 hover:border-primary/50 transition-colors">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-sm">{item.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{item.subtitle}</p>
+            <Suspense fallback={
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="rounded-lg border p-3 space-y-2 animate-pulse">
+                    <div className="flex justify-between">
+                      <div className="h-4 w-48 bg-muted rounded" />
+                      <div className="h-5 w-16 bg-muted rounded-full" />
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant={STATE_VARIANT[item.state] ?? 'outline'}>{item.state}</Badge>
-                      <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
+                    <div className="h-3 w-32 bg-muted rounded" />
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-2">{formatRelativeDate(item.timestamp)}</p>
-                </Link>
-              ))
-            )}
+                ))}
+              </div>
+            }>
+              <ExternalActivityList
+                activeServiceNames={activeServiceNames}
+                projectSnapshots={projectSnapshots}
+                linkedProjectByResource={linkedProjectByResource}
+                linkedProjectByName={linkedProjectByName}
+                linkedProjectByGithubRef={linkedProjectByGithubRef}
+                projectActivity={projectActivity}
+              />
+            </Suspense>
           </CardContent>
         </Card>
 
