@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { getNeoBridgeProject } from '@/lib/zoho-data'
-import { Server, Shield, Bot, BarChart3, Settings, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
 const STATUS_LABEL: Record<string, string> = {
   active:    'Actif',
@@ -16,14 +16,6 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
   archived:  'outline',
 }
 
-const tabs = [
-  { name: 'Infrastructure', href: 'infrastructure', icon: Server },
-  { name: 'Gouvernance',    href: 'governance',     icon: Shield },
-  { name: 'Orchestration', href: 'orchestration',  icon: Bot },
-  { name: 'Zoho',          href: 'zoho',           icon: BarChart3 },
-  { name: 'Paramètres',    href: 'settings',       icon: Settings },
-]
-
 export default async function ProjectLayout({
   children,
   params,
@@ -36,7 +28,6 @@ export default async function ProjectLayout({
   if (!project) notFound()
 
   const teamName = project.teamName ?? teamId.charAt(0).toUpperCase() + teamId.slice(1)
-  const base = `/dashboard/${teamId}/${projectId}`
 
   return (
     <div className="space-y-0">
@@ -72,20 +63,6 @@ export default async function ProjectLayout({
             {STATUS_LABEL[project.status] ?? project.status}
           </Badge>
         </div>
-
-        {/* Tabs */}
-        <nav className="flex gap-1 mt-4 flex-wrap">
-          {tabs.map(({ name, href, icon: Icon }) => (
-            <Link
-              key={href}
-              href={`${base}/${href}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              <Icon className="h-4 w-4" />
-              {name}
-            </Link>
-          ))}
-        </nav>
       </div>
 
       {children}

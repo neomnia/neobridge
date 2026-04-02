@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -34,18 +35,15 @@ const STATUS_LABEL: Record<string, string> = {
 
 async function fetchProjectApps(projectId: string): Promise<ProjectApp[]> {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/projects/${projectId}/apps`,
-      { cache: 'no-store' },
-    )
-    if (!res.ok) return []
+    const { db } = await import('@/db')
+    const { projectApps } = await import('@/db/schema')
+    const { desc, eq } = await import('drizzle-orm')
 
-    const payload = await res.json()
-    const rows = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload?.data)
-        ? payload.data
-        : []
+    const rows = await db
+      .select()
+      .from(projectApps)
+      .where(eq(projectApps.projectId, projectId))
+      .orderBy(desc(projectApps.createdAt))
 
     return rows.map((app) => ({
       ...app,
@@ -77,9 +75,10 @@ export default async function InfrastructurePage({
 }: {
   params: Promise<{ teamId: string; projectId: string }>
 }) {
-  const { teamId: _teamId, projectId } = await params
+  const { teamId, projectId } = await params
   const apps = await fetchProjectApps(projectId)
   const railway = await fetchRailwaySnapshot()
+  const settingsHref = `/dashboard/${teamId}/${projectId}/settings`
 
   return (
     <div className="space-y-6">
@@ -87,12 +86,14 @@ export default async function InfrastructurePage({
         <div>
           <h2 className="text-xl font-semibold">Infrastructure</h2>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Applications mappées sur ce projet — CockpitGrid
+            Applications et ressources reliées à ce projet NeoBridge
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Mapper une application
+        <Button asChild>
+          <Link href={settingsHref}>
+            <Plus className="h-4 w-4 mr-2" />
+            Gérer les connecteurs
+          </Link>
         </Button>
       </div>
 
@@ -101,9 +102,9 @@ export default async function InfrastructurePage({
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="font-semibold text-base">Railway connecté</h3>
+                <h3 className="font-semibold text-base">Contexte Railway</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Projet live disponible depuis NeoBridge via le token Railway configuré.
+                  Projet et environnement détectés depuis la configuration Railway de NeoBridge.
                 </p>
               </div>
               <Badge variant="secondary">{railway.scope.mode}</Badge>
@@ -138,9 +139,11 @@ export default async function InfrastructurePage({
           <p className="text-sm text-muted-foreground mt-1">
             Associez une application Vercel, Railway ou Scaleway à ce projet
           </p>
-          <Button className="mt-4">
-            <Plus className="h-4 w-4 mr-2" />
-            Mapper une application
+          <Button asChild className="mt-4">
+            <Link href={settingsHref}>
+              <Plus className="h-4 w-4 mr-2" />
+              Ajouter un connecteur
+            </Link>
           </Button>
         </div>
       ) : (

@@ -339,6 +339,11 @@ pnpm db:studio     # Open Drizzle Studio (visual DB browser)
 ## Changelog
 
 ### [2026-04-02]
+- **Infrastructure UX cleanup**: removed product-specific hardcoded copy from the project infrastructure screen, replaced placeholder actions with real navigation to settings, aligned server-side loading with the shared data layer instead of an internal self-fetch, and removed the duplicated local tab bar from the project layout so navigation stays sidebar-first.
+- **Files modified**: `app/(private)/dashboard/[teamId]/[projectId]/infrastructure/page.tsx`, `app/(private)/dashboard/[teamId]/[projectId]/layout.tsx`, `docs/PROJECT.md`
+- **Impact**: the project shell stays closer to the NeoBridge UX/layout rules, with fewer misleading non-functional controls, cleaner infrastructure wording, and no redundant in-page navigation.
+
+### [2026-04-02]
 - **NeoBridge navigation and Vercel sync clarified**: documented the official global/team/project routing model, the dynamic sidebar direction, the optional nature of Vercel linkage, and the current investigation path for repeated Zoho-related `500` errors.
 - **Files referenced**: `app/(private)/dashboard/[teamId]/[projectId]/layout.tsx`, `components/layout/private-dashboard/sidebar.tsx`, `lib/zoho-data.ts`, `lib/zoho.ts`, `docs/deployment/VERCEL.md`
 - **Impact**: the product frame is now aligned for the next implementation pass and the production incident triage is better scoped.
