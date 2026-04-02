@@ -9,7 +9,7 @@ import { requireAuth } from "@/lib/auth/server"
 const MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true"
 
 interface StartBody {
-  workflow: "agentSessionWorkflow" | "sprintPlanningWorkflow" | "ciAutoFixWorkflow"
+  workflow: "agentSessionWorkflow" | "sprintPlanningWorkflow" | "ciAutoFixWorkflow" | "reportingWorkflow"
   taskId?: string
   taskIds?: string[]
   projectId?: string
@@ -17,6 +17,20 @@ interface StartBody {
   prompt?: string
   metadata?: Record<string, unknown>
   mode?: "single" | "sprint" | "auto"
+}
+
+/** Route each workflow to its dedicated task queue */
+function resolveTaskQueue(workflow: StartBody["workflow"]): string {
+  switch (workflow) {
+    case "agentSessionWorkflow":
+    case "sprintPlanningWorkflow":
+    case "ciAutoFixWorkflow":
+      return "neobridge-agents"
+    case "reportingWorkflow":
+      return "neobridge-reporting"
+    default:
+      return "neobridge-agents"
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -57,7 +71,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           workflow_id: workflowId,
           workflow_type: { name: body.workflow },
-          task_queue: { name: "neobridge-worker" },
+          task_queue: { name: resolveTaskQueue(body.workflow) },
           input: {
             payloads: [
               {

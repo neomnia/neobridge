@@ -20,7 +20,16 @@ const { prepareExecutionBrief, syncZohoContext, persistExecutionTrace } = proxyA
 export async function agentSessionWorkflow(input: AgentSessionWorkflowInput) {
   log.info('agentSessionWorkflow started', { projectId: input.projectId, taskId: input.taskId })
 
+  const degraded: string[] = []
+
+  // 1. Sync Zoho context — non-blocking
   const zoho = await syncZohoContext(input.projectId, input.taskId)
+  if (!zoho.ok) {
+    degraded.push('zoho')
+    log.warn('Zoho sync returned degraded result — continuing without Zoho context')
+  }
+
+  // 2. Prepare brief via LangChain — non-blocking
   const brief = await prepareExecutionBrief({
     workflow: 'agentSessionWorkflow',
     mode: input.mode ?? 'single',
@@ -30,8 +39,13 @@ export async function agentSessionWorkflow(input: AgentSessionWorkflowInput) {
     taskIds: input.taskIds,
     prompt: input.prompt,
   })
+  if (brief.provider === 'fallback') {
+    degraded.push('llm')
+    log.warn('LLM unavailable — using fallback brief')
+  }
 
-  await persistExecutionTrace({
+  // 3. Persist trace — non-blocking
+  const trace = await persistExecutionTrace({
     workflow: 'agentSessionWorkflow',
     projectId: input.projectId,
     taskId: input.taskId ?? null,
@@ -39,14 +53,20 @@ export async function agentSessionWorkflow(input: AgentSessionWorkflowInput) {
     provider: brief.provider,
     metadata: input.metadata ?? {},
     zoho,
+    degradedServices: degraded,
   })
+  if (!trace.stored) {
+    degraded.push('mongodb')
+    log.warn('Trace persistence failed — result not stored')
+  }
 
   return {
-    status: 'COMPLETED',
+    status: degraded.length > 0 ? 'COMPLETED_DEGRADED' : 'COMPLETED',
     projectId: input.projectId,
     taskId: input.taskId ?? null,
     summary: brief.summary,
     provider: brief.provider,
     model: brief.model,
+    degradedServices: degraded.length > 0 ? degraded : undefined,
   }
 }

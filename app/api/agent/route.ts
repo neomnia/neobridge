@@ -4,7 +4,7 @@ import { verifyAuth } from '@/lib/auth/server'
 import { buildLangChainPlan } from '@/lib/agents/langchain'
 
 const bodySchema = z.object({
-  workflow: z.enum(['agentSessionWorkflow', 'sprintPlanningWorkflow', 'ciAutoFixWorkflow']).default('agentSessionWorkflow'),
+  workflow: z.enum(['agentSessionWorkflow', 'sprintPlanningWorkflow', 'ciAutoFixWorkflow', 'reportingWorkflow']).default('agentSessionWorkflow'),
   mode: z.enum(['single', 'sprint', 'auto']).default('single'),
   projectId: z.string().min(1, 'projectId is required'),
   teamId: z.string().optional(),
