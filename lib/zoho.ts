@@ -23,7 +23,6 @@ interface ZohoDbConfig {
 }
 
 let cachedToken: { access_token: string; expires_at: number } | null = null
-let cachedNumericPortalId: string | null = null
 
 /**
  * Normalizes domain to full form: "com" → "zoho.com", "eu" → "zoho.eu"
@@ -105,51 +104,18 @@ export async function getZohoAccessToken(): Promise<string> {
   return cachedToken.access_token
 }
 
-/**
- * Resolves the numeric portal ID from the slug (or returns as-is if already numeric).
- * V3 API requires the numeric portal ID, not the text slug.
- * Cached after first successful lookup.
- */
-async function resolveNumericPortalId(creds: { portalId: string; domain: string }, token: string): Promise<string> {
-  // Already numeric — use directly
-  if (/^\d+$/.test(creds.portalId)) return creds.portalId
-  // Return cached value
-  if (cachedNumericPortalId) return cachedNumericPortalId
-  // Look up from portals list using V3 endpoint
-  try {
-    const res = await fetch(`https://projectsapi.${creds.domain}/api/v3/portals/`, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` },
-    })
-    if (res.ok) {
-      const data = await res.json()
-      const portals: Array<{ id?: string | number; portal_id?: string; id_string?: string; name?: string }> =
-        data.portals ?? data.login_info?.portals ?? []
-      const match = portals.find(p =>
-        p.id_string === creds.portalId ||
-        p.name === creds.portalId ||
-        String(p.portal_id) === creds.portalId
-      )
-      if (match?.id ?? match?.portal_id) {
-        cachedNumericPortalId = String(match.id ?? match.portal_id)
-        return cachedNumericPortalId
-      }
-    }
-  } catch { /* fall through */ }
-  // Fallback: use the slug as-is (will fail, but error will be descriptive)
-  return creds.portalId
-}
-
 export async function zohoFetch(
   path: string,
   options: RequestInit = {}
 ): Promise<Response> {
   const creds = await getZohoCreds()
   const token = await getZohoAccessToken()
-  const numericPortalId = await resolveNumericPortalId(creds, token)
-  // V3 API — old /restapi/ endpoint was deprecated Dec 31 2025
-  // V3 uses /api/v3/portal/{numericId}/ (singular "portal", numeric ID)
+  // V3 API — old /restapi/ endpoint was deprecated Dec 31 2025.
+  // V3 uses /api/v3/portals/{portal_id}/ (plural "portals").
+  // portal_id can be the slug (e.g. "neomniadotnet") or the numeric portal ID —
+  // both are accepted by Zoho Projects v3.
   const apiBase = `https://projectsapi.${creds.domain}/api/v3`
-  const url = `${apiBase}/portal/${numericPortalId}${path}`
+  const url = `${apiBase}/portals/${creds.portalId}${path}`
 
   return fetch(url, {
     ...options,
