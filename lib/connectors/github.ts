@@ -170,7 +170,7 @@ export async function getRepo(
 export async function resolveGitHubToken(): Promise<string | null> {
   try {
     const { serviceApiRepository } = await import("@/lib/services")
-    const config = await serviceApiRepository.getConfig("github_api", "production")
+    const config = await serviceApiRepository.getConfig("github_token", "production")
     if (config?.config?.personalAccessToken) {
       return config.config.personalAccessToken as string
     }
