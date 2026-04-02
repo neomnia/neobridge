@@ -101,26 +101,71 @@ export async function listGitHubOrgs(token: string): Promise<GitHubOrg[]> {
 }
 
 /**
- * List all repositories accessible to the authenticated user (personal + org).
- * Paginates automatically up to 500 repos.
+ * Paginate a GitHub list endpoint. Returns all items up to `maxItems`.
  */
-export async function listAllRepos(token: string): Promise<GitHubRepo[]> {
-  const repos: GitHubRepo[] = []
+async function paginateGitHub<T>(
+  baseUrl: string,
+  token: string,
+  maxItems = 1000,
+): Promise<T[]> {
+  const items: T[] = []
   let page = 1
 
-  while (repos.length < 500) {
-    const res = await githubFetch(
-      `/user/repos?per_page=100&page=${page}&sort=pushed&affiliation=owner,collaborator,organization_member`,
-      token,
-    )
-    const batch: GitHubRepo[] = await res.json()
-    if (batch.length === 0) break
-    repos.push(...batch)
+  while (items.length < maxItems) {
+    const sep = baseUrl.includes("?") ? "&" : "?"
+    const res = await githubFetch(`${baseUrl}${sep}per_page=100&page=${page}`, token)
+    const batch: T[] = await res.json()
+    if (!Array.isArray(batch) || batch.length === 0) break
+    items.push(...batch)
     if (batch.length < 100) break
     page++
   }
 
-  return repos
+  return items
+}
+
+/**
+ * List all repositories accessible to the authenticated user.
+ * Combines personal repos + all org repos to guarantee full coverage
+ * regardless of PAT scope (read:org vs repo).
+ */
+export async function listAllRepos(token: string): Promise<GitHubRepo[]> {
+  // Fetch personal repos + orgs list in parallel
+  const [personalRepos, orgs] = await Promise.all([
+    paginateGitHub<GitHubRepo>("/user/repos?sort=pushed&visibility=all", token),
+    listGitHubOrgs(token).catch(() => [] as GitHubOrg[]),
+  ])
+
+  // Fetch all org repos in parallel (one request stream per org)
+  const orgRepoArrays = await Promise.allSettled(
+    orgs.map((org) =>
+      paginateGitHub<GitHubRepo>(
+        `/orgs/${encodeURIComponent(org.login)}/repos?sort=pushed&type=all`,
+        token,
+      ),
+    ),
+  )
+
+  const orgRepos = orgRepoArrays
+    .filter((r): r is PromiseFulfilledResult<GitHubRepo[]> => r.status === "fulfilled")
+    .flatMap((r) => r.value)
+
+  // Merge and deduplicate by repo id
+  const seen = new Set<number>()
+  const all: GitHubRepo[] = []
+  for (const repo of [...personalRepos, ...orgRepos]) {
+    if (!seen.has(repo.id)) {
+      seen.add(repo.id)
+      all.push(repo)
+    }
+  }
+
+  // Sort by last push desc
+  return all.sort((a, b) => {
+    const ta = a.pushed_at ? new Date(a.pushed_at).getTime() : 0
+    const tb = b.pushed_at ? new Date(b.pushed_at).getTime() : 0
+    return tb - ta
+  })
 }
 
 /**
