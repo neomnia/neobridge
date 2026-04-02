@@ -58,6 +58,8 @@
       },
       "allowedDeprecatedVersions": {
         "@vercel/postgres": "*",
+        "@xata.io/client": "*",
+        "@xmldom/xmldom": "*",
         "@esbuild-kit/core-utils": "*",
         "@esbuild-kit/esm-loader": "*",
         "@npmcli/move-file": "*",
@@ -67,6 +69,7 @@
         "inflight": "*",
         "node-domexception": "*",
         "npmlog": "*",
+        "prebuild-install": "*",
         "rimraf": "*",
         "tar": "*"
       }
@@ -124,7 +127,7 @@
     "jsonwebtoken": "latest",
     "lago-javascript-client": "^1.36.0",
     "lucide-react": "^0.454.0",
-    "next": "^16.0.0",
+    "next": "^16.2.2",
     "next-themes": "latest",
     "pg": "^8.16.3",
     "react": "^19",
