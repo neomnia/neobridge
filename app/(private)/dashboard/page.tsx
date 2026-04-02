@@ -93,10 +93,10 @@ async function fetchDashboardData(): Promise<{
 }> {
   try {
     const { db } = await import('@/db')
-    const { projectApps, projectConnectors, projects, serviceApiConfigs, teams } = await import('@/db/schema')
+    const { adminApiKeys, projectApps, projectConnectors, projects, serviceApiConfigs, teams } = await import('@/db/schema')
     const { eq } = await import('drizzle-orm')
 
-    const [teamRows, projectRows, appRows, connectorRows, serviceRows] = await Promise.all([
+    const [teamRows, projectRows, appRows, connectorRows, serviceRows, legacyServiceRows] = await Promise.all([
       db.select().from(teams),
       db.select({
         id: projects.id,
@@ -118,7 +118,8 @@ async function fetchDashboardData(): Promise<{
         label: projectConnectors.label,
         config: projectConnectors.config,
       }).from(projectConnectors),
-      db.select({ id: serviceApiConfigs.id }).from(serviceApiConfigs).where(eq(serviceApiConfigs.isActive, true)),
+      db.select({ serviceName: serviceApiConfigs.serviceName }).from(serviceApiConfigs).where(eq(serviceApiConfigs.isActive, true)),
+      db.select({ type: adminApiKeys.type }).from(adminApiKeys),
     ])
 
     const projectCountByTeam = new Map<string, number>()
@@ -141,6 +142,14 @@ async function fetchDashboardData(): Promise<{
       const list = connectorMap.get(connector.projectId) ?? []
       list.push(connector)
       connectorMap.set(connector.projectId, list)
+    }
+
+    const activeServiceNames = new Set<string>()
+    for (const row of serviceRows) {
+      activeServiceNames.add(row.serviceName === 'github_api' ? 'github_token' : row.serviceName)
+    }
+    for (const row of legacyServiceRows) {
+      activeServiceNames.add(row.type === 'github_api' ? 'github_token' : row.type)
     }
 
     const projectSnapshots = projectRows.map((project) => {
@@ -285,7 +294,7 @@ async function fetchDashboardData(): Promise<{
         projectCount: projectCountByTeam.get(team.id) ?? 0,
       })),
       totalProjects: projectRows.length,
-      activeServices: serviceRows.length,
+      activeServices: activeServiceNames.size,
       projectsWithVercel,
       projectsWithGithub,
       projectsWithZoho,

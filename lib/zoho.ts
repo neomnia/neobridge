@@ -3,25 +3,63 @@
  * Handles OAuth token refresh and API calls.
  */
 
+import { resolveCredential } from '@/lib/api-management'
+import { serviceApiRepository } from '@/lib/services'
+
 const ZOHO_TOKEN_URL = "https://accounts.zoho.eu/oauth/v2/token"
 const ZOHO_API_BASE = "https://projectsapi.zoho.eu/restapi"
 
 let cachedToken: { access_token: string; expires_at: number } | null = null
+
+async function getZohoRuntimeConfig(): Promise<{
+  clientId: string
+  clientSecret: string
+  refreshToken: string
+  portalId?: string | null
+}> {
+  const envClientId = process.env.ZOHO_CLIENT_ID
+  const envClientSecret = process.env.ZOHO_CLIENT_SECRET
+  const envRefreshToken = process.env.ZOHO_REFRESH_TOKEN
+
+  if (envClientId && envClientSecret && envRefreshToken) {
+    return {
+      clientId: envClientId,
+      clientSecret: envClientSecret,
+      refreshToken: envRefreshToken,
+      portalId: process.env.ZOHO_PORTAL_ID ?? null,
+    }
+  }
+
+  const credential = await resolveCredential('zoho').catch(() => null) as Record<string, unknown> | null
+  const storedConfig = credential ?? (await serviceApiRepository.getConfig('zoho' as any, 'production').catch(() => null) as any)?.config ?? null
+
+  const clientId = typeof storedConfig?.clientId === 'string' ? storedConfig.clientId : null
+  const clientSecret = typeof storedConfig?.clientSecret === 'string' ? storedConfig.clientSecret : null
+  const refreshToken = typeof storedConfig?.refreshToken === 'string' ? storedConfig.refreshToken : null
+  const portalId = typeof storedConfig?.portalId === 'string'
+    ? storedConfig.portalId
+    : typeof storedConfig?.organizationId === 'string'
+      ? storedConfig.organizationId
+      : null
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Zoho OAuth credentials not configured')
+  }
+
+  return { clientId, clientSecret, refreshToken, portalId }
+}
 
 export async function getZohoAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expires_at - 30_000) {
     return cachedToken.access_token
   }
 
-  const { ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN } = process.env
-  if (!ZOHO_CLIENT_ID || !ZOHO_CLIENT_SECRET || !ZOHO_REFRESH_TOKEN) {
-    throw new Error("Zoho OAuth credentials not configured")
-  }
+  const { clientId, clientSecret, refreshToken } = await getZohoRuntimeConfig()
 
   const params = new URLSearchParams({
-    refresh_token: ZOHO_REFRESH_TOKEN,
-    client_id: ZOHO_CLIENT_ID,
-    client_secret: ZOHO_CLIENT_SECRET,
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: clientSecret,
     grant_type: "refresh_token",
   })
 
@@ -49,7 +87,8 @@ export async function zohoFetch(
   config: ZohoFetchConfig = {},
 ): Promise<Response> {
   const token = await getZohoAccessToken()
-  const portalId = config.portalId ?? process.env.ZOHO_PORTAL_ID ?? ""
+  const runtimeConfig = await getZohoRuntimeConfig()
+  const portalId = config.portalId ?? runtimeConfig.portalId ?? process.env.ZOHO_PORTAL_ID ?? ""
 
   if (!portalId) {
     throw new Error("Zoho portal ID not configured")

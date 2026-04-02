@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireAuth, isAdmin } from '@/lib/auth/server'
 import { db } from '@/db'
-import { serviceApiConfigs } from '@/db/schema'
+import { adminApiKeys, serviceApiConfigs } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -38,19 +38,28 @@ export default async function ApiKeysPage() {
 
   const statusMap = new Map<string, boolean>()
   try {
-    const rows = await db
-      .select({ serviceName: serviceApiConfigs.serviceName, isActive: serviceApiConfigs.isActive })
-      .from(serviceApiConfigs)
-      .where(eq(serviceApiConfigs.environment, 'production'))
+    const [rows, legacyRows] = await Promise.all([
+      db
+        .select({ serviceName: serviceApiConfigs.serviceName, isActive: serviceApiConfigs.isActive })
+        .from(serviceApiConfigs)
+        .where(eq(serviceApiConfigs.environment, 'production')),
+      db.select({ type: adminApiKeys.type }).from(adminApiKeys),
+    ])
 
     for (const row of rows) {
-      statusMap.set(row.serviceName, row.isActive)
+      const normalizedName = row.serviceName === 'github_api' ? 'github_token' : row.serviceName
+      statusMap.set(normalizedName, row.isActive)
+    }
+
+    for (const row of legacyRows) {
+      const normalizedName = row.type === 'github_api' ? 'github_token' : row.type
+      statusMap.set(normalizedName, true)
     }
   } catch {
     // DB or config unavailable → read-only empty state
   }
 
-  const configuredCount = [...statusMap.values()].filter(Boolean).length
+  const configuredCount = NEOBRIDGE_SERVICES.filter((service) => statusMap.get(service.id)).length
   const groups = groupByCategory(NEOBRIDGE_SERVICES)
 
   return (

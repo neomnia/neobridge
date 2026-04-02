@@ -46,14 +46,13 @@ async function getStoredVercelConfig(
   environment: VercelEnvironment = 'production',
   teamId?: string,
 ): Promise<StoredVercelConfig> {
-  if (teamId) {
-    const teamOverride = await resolveCredential('vercel', teamId).catch(() => null)
-    const token = teamOverride?.apiToken || teamOverride?.token
-    if (typeof token === 'string' && token.trim()) {
-      return {
-        token: token.trim(),
-        teamId: typeof teamOverride?.teamId === 'string' ? teamOverride.teamId : null,
-      }
+  const storedCredential = await resolveCredential('vercel', teamId).catch(() => null)
+  const credentialToken = storedCredential?.apiToken || storedCredential?.token
+
+  if (typeof credentialToken === 'string' && credentialToken.trim()) {
+    return {
+      token: credentialToken.trim(),
+      teamId: typeof storedCredential?.teamId === 'string' ? storedCredential.teamId : null,
     }
   }
 

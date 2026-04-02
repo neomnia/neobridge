@@ -41,17 +41,22 @@ async function getStoredGitHubConfig(
   environment: GitHubEnvironment = 'production',
   teamId?: string,
 ): Promise<StoredGitHubConfig> {
-  if (teamId) {
-    const teamOverride = await resolveCredential('github_token', teamId).catch(() => null)
-    const token = teamOverride?.personalAccessToken || teamOverride?.token
+  const storedCredential = await resolveCredential('github_token', teamId).catch(() => null)
+  const credentialToken = storedCredential?.personalAccessToken || storedCredential?.token
 
-    if (typeof token === 'string' && token.trim()) {
-      return { token: token.trim() }
-    }
+  if (typeof credentialToken === 'string' && credentialToken.trim()) {
+    return { token: credentialToken.trim() }
   }
 
-  const cfg = await serviceApiRepository.getConfig('github_token' as any, environment).catch(() => null) as any
-  const token = cfg?.config?.personalAccessToken || cfg?.config?.token
+  const [tokenCfg, apiCfg] = await Promise.all([
+    serviceApiRepository.getConfig('github_token' as any, environment).catch(() => null),
+    serviceApiRepository.getConfig('github_api' as any, environment).catch(() => null),
+  ]) as any[]
+
+  const token = tokenCfg?.config?.personalAccessToken
+    || tokenCfg?.config?.token
+    || apiCfg?.config?.personalAccessToken
+    || apiCfg?.config?.token
 
   if (!token || typeof token !== 'string') {
     throw new Error('GitHub token not found in NeoBridge')

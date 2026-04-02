@@ -9,7 +9,7 @@ import { zohoFetch } from './zoho'
 import type { ZohoProject, ZohoTask, ZohoMilestone } from './zoho'
 
 const MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
-const useMock = () => MOCK || !process.env.ZOHO_CLIENT_ID
+const useMock = () => MOCK
 
 export interface NeoBridgeProjectSummary {
   id: string
@@ -254,9 +254,9 @@ export async function listZohoProjects(): Promise<ZohoProject[]> {
     const res = await zohoFetch('/projects/')
     const data = await res.json()
     const projects = data.projects ?? []
-    return projects.length > 0 ? projects : MOCK_PROJECTS
+    return projects.length > 0 ? projects : []
   } catch {
-    return MOCK_PROJECTS
+    return useMock() ? MOCK_PROJECTS : []
   }
 }
 
@@ -272,7 +272,7 @@ export async function getZohoProject(
     const data = await res.json()
     return data.projects?.[0] ?? null
   } catch {
-    return MOCK_PROJECTS.find((project) => project.id === projectId) ?? null
+    return useMock() ? MOCK_PROJECTS.find((project) => project.id === projectId) ?? null : null
   }
 }
 
@@ -287,7 +287,7 @@ export async function listZohoTasks(
     const tasks = data.tasks ?? []
     return tasks.length > 0 ? tasks : []
   } catch {
-    return MOCK_TASKS
+    return useMock() ? MOCK_TASKS : []
   }
 }
 
@@ -302,7 +302,7 @@ export async function listZohoMilestones(
     const milestones = data.milestones ?? []
     return milestones.length > 0 ? milestones : []
   } catch {
-    return MOCK_MILESTONES
+    return useMock() ? MOCK_MILESTONES : []
   }
 }
 

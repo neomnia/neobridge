@@ -9,6 +9,24 @@
 
 ## 🚨 Corrections Récentes
 
+### 2 avril 2026 - Connexion des services recâblée sur les vraies clés NeoBridge
+
+**Contexte** : malgré les clés API déjà enregistrées côté admin, le cockpit et certaines intégrations continuaient à n’afficher aucune synchronisation visible.
+
+**Cause validée** :
+
+- ⚠️ certains clients lisaient uniquement `service_api_configs` ou les variables d’environnement ;
+- ⚠️ Zoho restait bloqué derrière une condition `!process.env.ZOHO_CLIENT_ID` ;
+- ⚠️ les clés encore présentes dans le stockage legacy `admin_api_keys` n’étaient pas reflétées dans le cockpit global.
+
+**Changements** :
+
+- ✅ fallback ajouté sur les credentials NeoBridge existants pour `Vercel`, `GitHub` et `Railway` ;
+- ✅ `Zoho` lit maintenant aussi la configuration stockée en base et ne bascule plus aveuglément en mock à cause des seules variables d’environnement ;
+- ✅ `/dashboard` et `/dashboard/api-keys` reflètent désormais aussi les services configurés via le stockage legacy.
+
+**Impact** : le cockpit peut enfin afficher l’état de synchronisation attendu à partir des clés déjà saisies, sans exiger une duplication manuelle dans plusieurs systèmes de config.
+
 ### 2 avril 2026 - Couche GitHub ajoutée au cockpit NeoBridge
 
 **Contexte** : la vue globale `/dashboard` devait aussi remonter les repositories GitHub gérés, les derniers pushes/modifications et un accès direct à la page qui centralise le pilotage Git.

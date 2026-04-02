@@ -1,3 +1,4 @@
+import { resolveCredential } from '@/lib/api-management'
 import { serviceApiRepository } from '@/lib/services'
 
 const RAILWAY_GRAPHQL_URL = 'https://backboard.railway.com/graphql/v2'
@@ -42,6 +43,25 @@ function looksLikeProjectToken(token?: string | null) {
 }
 
 async function getRailwayStoredConfig(environment: 'production' | 'test' | 'sandbox' = 'production') {
+  const override = await resolveCredential('railway').catch(() => null) as any
+  const overrideToken = override?.projectToken || override?.apiKey || override?.accessToken || override?.token
+
+  if (override && (overrideToken || (override.clientId && override.clientSecret))) {
+    const mode: RailwayAuthMode = override?.authMode === 'project-token' || looksLikeProjectToken(overrideToken)
+      ? 'project-token'
+      : override?.authMode === 'oauth' || override?.accessToken
+        ? 'oauth'
+        : 'token'
+
+    return {
+      id: undefined,
+      token: overrideToken as string | undefined,
+      mode,
+      config: override,
+      metadata: override?.metadata || {},
+    }
+  }
+
   const cfg = await serviceApiRepository.getConfig('railway' as any, environment) as any
   if (!cfg?.config) {
     throw new Error('Railway configuration not found in NeoBridge')

@@ -341,6 +341,11 @@ pnpm db:studio     # Open Drizzle Studio (visual DB browser)
 ## Changelog
 
 ### [2026-04-02]
+- **Service sync connection fix**: the cockpit and service clients now read the saved NeoBridge credentials from both `service_api_configs` and the legacy admin keys store, and Zoho is no longer blocked by env-only detection.
+- **Files modified**: `lib/vercel/client.ts`, `lib/github/client.ts`, `lib/railway/client.ts`, `lib/zoho.ts`, `lib/zoho-data.ts`, `app/(private)/dashboard/api-keys/page.tsx`, `app/(private)/dashboard/page.tsx`
+- **Impact**: configured services can now surface real synchronization state in the cockpit instead of staying invisible when the keys already exist in the admin configuration.
+
+### [2026-04-02]
 - **GitHub layer added to the global cockpit**: introduced a dedicated `/dashboard/github` page, added recent Git pushes/updates to `/dashboard`, exposed GitHub coverage in the production cockpit, and surfaced GitHub linkage in the global PM view.
 - **Files modified**: `lib/github/client.ts`, `app/(private)/dashboard/github/page.tsx`, `app/(private)/dashboard/page.tsx`, `app/(private)/dashboard/projects-pm/page.tsx`, `components/layout/private-dashboard/sidebar.tsx`
 - **Impact**: NeoBridge now centralizes repository visibility alongside Vercel/Railway/Zoho and highlights which Git repositories are already tied to a NeoBridge master project.
