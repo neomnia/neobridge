@@ -28,6 +28,7 @@ import {
   BarChart3,
   DollarSign,
   ChevronLeft,
+  Github,
   Terminal,
   Globe,
   MessageCircle,
@@ -47,7 +48,7 @@ import { toast } from "sonner"
 import { useUser } from "@/lib/contexts/user-context"
 import { usePlatformConfig } from "@/contexts/platform-config-context"
 
-const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods", "new", "projects", "deployments", "logs", "costs", "projects-pm", "api-keys", "kanban", "sprint", "agent"])
+const RESERVED = new Set(["payments", "profile", "support", "admin", "company-management", "chat", "cart", "checkout", "appointments", "payment-methods", "new", "projects", "deployments", "logs", "costs", "projects-pm", "api-keys", "kanban", "sprint", "agent", "github"])
 
 interface ActiveProject {
   teamId: string
@@ -83,6 +84,7 @@ const projectSubItems = [
 const globalNavItems = [
   { name: "Projets",        href: "/dashboard/projects",    icon: LayoutGrid    },
   { name: "Gestion PM",     href: "/dashboard/projects-pm", icon: KanbanSquare  },
+  { name: "GitHub",         href: "/dashboard/github",      icon: Github        },
   { name: "Déploiements",   href: "/dashboard/deployments", icon: Rocket        },
   { name: "Logs",           href: "/dashboard/logs",        icon: ScrollText    },
   { name: "Coûts",          href: "/dashboard/costs",       icon: DollarSign    },
