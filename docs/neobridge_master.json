@@ -1,0 +1,98 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "description": "Fichier de pilotage NeoBridge — suivi des bugs, statuts de services et décisions d'architecture.",
+    "last_updated": "2026-04-02T21:18:39Z",
+    "rule": "Ce fichier est mis à jour après chaque correction ou décision impactant l'architecture ou les services."
+  },
+
+  "bugs": [
+    {
+      "id": "BUG-001",
+      "title": "Zoho API 400 URL_RULE_NOT_CONFIGURED",
+      "service": "zoho",
+      "severity": "high",
+      "status": "resolved",
+      "reported_at": "2026-04-02",
+      "resolved_at": "2026-04-02T21:18:39Z",
+      "branch": "claude/review-config-architecture-EZeys",
+      "commit": "dc72923",
+      "root_cause": "resolveNumericPortalId() ne matchait pas le slug d'URL Zoho (ex: 'neomniadotnet'). Le champ `link` n'était pas testé dans le find(), et l'expression `match?.id ?? match?.portal_id` était mal protégée. En cas d'échec, la fonction retournait le slug brut, invalide pour l'API V3 qui exige un ID numérique.",
+      "fix": {
+        "file": "lib/zoho.ts",
+        "function": "resolveNumericPortalId",
+        "changes": [
+          "Ajout du champ `link` dans les critères de match (slug URL Zoho)",
+          "Guard `if (match)` propre avant lecture de .id",
+          "Auto-sélection du portail unique si aucun match exact (single-tenant)",
+          "console.error actionnable avec liste des portails disponibles si plusieurs portails"
+        ]
+      },
+      "note": "ZOHO_PORTAL_ID n'était PAS hardcodé — il était déjà lu depuis env/DB. Le bug était uniquement dans la résolution slug → ID numérique."
+    }
+  ],
+
+  "services_status": [
+    {
+      "service": "zoho",
+      "type": "compute",
+      "api_version": "v3",
+      "base_url_pattern": "https://projectsapi.{domain}/api/v3/portal/{numericPortalId}/",
+      "status": "configured",
+      "known_issues": [],
+      "notes": "ZOHO_PORTAL_ID peut être un slug (ex: 'neomniadotnet') — le code résout automatiquement l'ID numérique via GET /api/v3/portals/. Si multi-portail, définir ZOHO_PORTAL_ID avec l'ID numérique directement."
+    },
+    {
+      "service": "anthropic",
+      "type": "neobridge",
+      "api_version": "2023-06-01",
+      "status": "configured",
+      "known_issues": []
+    },
+    {
+      "service": "neon",
+      "type": "storage",
+      "role": "Auth / Logs / Schema Drizzle",
+      "status": "configured",
+      "known_issues": []
+    },
+    {
+      "service": "mongodb",
+      "type": "storage",
+      "role": "Service-Mapping / Knowledge Base RAG",
+      "status": "configured",
+      "known_issues": []
+    },
+    {
+      "service": "railway",
+      "type": "compute",
+      "role": "Workers / Jobs asynchrones / Pipelines RAG",
+      "status": "configured",
+      "known_issues": []
+    },
+    {
+      "service": "vercel",
+      "type": "neobridge",
+      "role": "Orchestrateur / Frontend / API Routes",
+      "status": "configured",
+      "known_issues": []
+    }
+  ],
+
+  "architecture_decisions": [
+    {
+      "id": "ADR-001",
+      "date": "2026-04-02",
+      "title": "Zoho V3 API — ID numérique obligatoire",
+      "decision": "L'API Zoho Projects V3 (/api/v3/portal/{id}/) exige un ID numérique. Le slug d'URL visible dans le navigateur n'est pas directement utilisable. La résolution se fait via GET /api/v3/portals/ au premier appel, avec cache mémoire.",
+      "consequence": "ZOHO_PORTAL_ID peut rester un slug en dev — le code auto-résout. En production multi-portail, préférer l'ID numérique pour éviter l'ambiguïté."
+    },
+    {
+      "id": "ADR-002",
+      "date": "2026-04-02",
+      "title": "Affichage 'Configuration Requise' si service en erreur",
+      "decision": "Si un service (Zoho, Vercel, Neon) retourne une erreur API, NeoBridge ne doit PAS afficher de données mock silencieusement. Il doit exposer l'erreur via le champ `error` retourné par listZohoProjectsWithStatus() / listZohoTasksWithStatus() pour que l'UI affiche un banner 'Configuration Requise'.",
+      "consequence": "Les fonctions *WithStatus() retournent toujours { data, isMock, error? }. Le flag isMock: true combiné à error indique une dégradation, pas un mode test volontaire."
+    }
+  ]
+}
