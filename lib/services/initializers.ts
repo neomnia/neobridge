@@ -256,6 +256,9 @@ export async function testServiceConnection(serviceName: string, environment: Se
       case 'zoho': {
         const cfg = await serviceApiRepository.getConfig('zoho' as any, environment) as any;
         if (!cfg?.config?.clientId || !cfg?.config?.refreshToken) return { success: false, message: 'Credentials Zoho non configurés' };
+        // Use domain from DB config — never hardcode datacenter
+        const rawDomain = cfg.config.domain ?? 'zoho.com'
+        const domain = rawDomain.startsWith('zoho.') ? rawDomain : `zoho.${rawDomain}`
         // Try to get an access token using the refresh token
         const params = new URLSearchParams({
           grant_type: 'refresh_token',
@@ -263,10 +266,10 @@ export async function testServiceConnection(serviceName: string, environment: Se
           client_secret: cfg.config.clientSecret,
           refresh_token: cfg.config.refreshToken,
         });
-        const r = await fetch('https://accounts.zoho.eu/oauth/v2/token', { method: 'POST', body: params });
+        const r = await fetch(`https://accounts.${domain}/oauth/v2/token`, { method: 'POST', body: params });
         const d = await r.json();
         if (d.error) return { success: false, message: `Zoho OAuth erreur : ${d.error}` };
-        return { success: true, message: `Zoho : access token obtenu (expire dans ${Math.round((d.expires_in || 3600) / 60)} min)` };
+        return { success: true, message: `Zoho (${domain}) : access token obtenu (expire dans ${Math.round((d.expires_in || 3600) / 60)} min)` };
       }
 
       case 'temporal': {

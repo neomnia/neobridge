@@ -17,14 +17,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'code, clientId et clientSecret sont requis' }, { status: 400 })
   }
 
-  // Try EU domain first (European accounts), then COM and IN
-  for (const domain of ['eu', 'com', 'in']) {
+  // Try COM first (most common), then EU and IN
+  // Only bail early on invalid_client (wrong credentials) — other errors may be domain mismatches
+  for (const domain of ['com', 'eu', 'in']) {
     try {
       const params = new URLSearchParams({
         grant_type: 'authorization_code',
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri || 'https://neobridge.vercel.app',
+        redirect_uri: redirectUri || `${(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '')}/api/auth/oauth/zoho/callback`,
         code,
       })
       const res = await fetch(`https://accounts.zoho.${domain}/oauth/v2/token`, {
@@ -41,8 +42,8 @@ export async function POST(request: NextRequest) {
           expiresIn: data.expires_in,
         })
       }
-      // If error is not "invalid_code", it's a real error for this domain
-      if (data.error && data.error !== 'invalid_code') {
+      // Bail only on credential errors — never on domain/code mismatch
+      if (data.error === 'invalid_client') {
         return NextResponse.json({ success: false, error: data.error, domain }, { status: 400 })
       }
     } catch { /* try next domain */ }

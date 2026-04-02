@@ -185,6 +185,7 @@ export async function zohoFetch(
   // V3 uses /api/v3/portal/{numericId}/ (singular "portal", numeric ID)
   const apiBase = `https://projectsapi.${creds.domain}/api/v3`
   const url = `${apiBase}/portal/${numericPortalId}${path}`
+  console.log(`[DEBUG] Zoho Base URL: ${apiBase} | portalId: "${numericPortalId}" | full: ${url}`)
 
   return fetch(url, {
     ...options,
