@@ -10,6 +10,8 @@
         "/^npm install -g @railway/cli$/": {
             "approve": true,
             "matchCommandLine": true
-        }
+        },
+        "git checkout": true,
+        "printf": true
     }
 }

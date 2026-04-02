@@ -444,6 +444,12 @@ Use these prefixes in release notes and status updates:
 
 ## Changelog
 
+### [2026-04-02]
+
+- **Deployment secrets hygiene improved**: removed hardcoded Neon/Railway values from helper scripts and aligned setup flows around environment-provided secrets.
+- **Files modified**: `scripts/check-user-direct.ts`, `scripts/quick-check-user.js`, `scripts/setup-vercel-env.sh`, `scripts/vercel-api-setup.sh`, `docs/deployment/RAILWAY_TEMPORAL.md`, `STATUS.md`
+- **Impact**: safer onboarding, Vercel configuration, and Railway runbooks with less risk of leaking credentials in the repo.
+
 ### [2026-03-23]
 
 - **Added versioning model**: SemVer policy, pre-release conventions, and release workflow added.

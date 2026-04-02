@@ -26,9 +26,11 @@ Important: MongoDB n'est pas le moteur de persistence de Temporal. Temporal util
 Ne commite jamais la cle API dans le repo.
 
 ```bash
-export RAILWAY_TOKEN="bd603b15-8f73-483c-89dd-965810628fa1"
+export RAILWAY_TOKEN="<token-railway-stocke-dans-ton-shell-ou-ton-gestionnaire-de-secrets>"
 railway login --token "$RAILWAY_TOKEN"
 ```
+
+> Recommandation: conserver les tokens Railway/Vercel uniquement dans les variables d'environnement locales ou dans le gestionnaire de secrets de l'équipe, jamais en clair dans le repo ou Notion.
 
 Puis:
 
@@ -143,6 +145,12 @@ curl https://<ton-app>/api/temporal/active -H "Cookie: <session-auth>"
 - `app/api/temporal/active/route.ts`: listing workflows actifs
 
 ## Changelog
+
+### [2026-04-02]
+
+- **Sanitisation des credentials d'infra** : remplacement des tokens explicites par des placeholders et rappel d'usage via variables d'environnement locales/secrets manager.
+- **Fichiers modifies** : `docs/deployment/RAILWAY_TEMPORAL.md`, `scripts/setup-vercel-env.sh`, `scripts/vercel-api-setup.sh`
+- **Impact** : runbook Railway/Vercel plus sûr et plus conforme aux bonnes pratiques d'équipe.
 
 ### [2026-03-29]
 

@@ -5,10 +5,14 @@
 
 import { neon } from '@neondatabase/serverless';
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_cRzIrOmJwo38@ep-calm-lab-agkv7stu-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+const DATABASE_URL = process.env.DATABASE_URL;
 
 async function checkUser() {
   try {
+    if (!DATABASE_URL) {
+      throw new Error('DATABASE_URL is not set. Export it before running this script.');
+    }
+
     const sql = neon(DATABASE_URL);
 
     console.log('🔍 Checking user: chvandendriessche@neomnia.net\n');

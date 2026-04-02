@@ -428,8 +428,8 @@ curl -X POST https://[votre-domaine]/api/admin/stripe/sync-products \
 🔴 **Le fichier `.env` contient des credentials sensibles!**
 
 ```env
-DATABASE_URL='postgresql://neondb_owner:npg_cRzIrOmJwo38@ep-calm-lab-agkv7stu-pooler...'
-NEXTAUTH_SECRET='supersecretkeythatisatleast32characterslong'
+DATABASE_URL='postgresql://<user>:<password>@<host>/<database>?sslmode=require&channel_binding=require'
+NEXTAUTH_SECRET='<generate-a-new-32-byte-secret>'
 ```
 
 **ACTIONS REQUISES IMMÉDIATEMENT:**

@@ -27,9 +27,15 @@ echo ""
 echo "📋 Configuration des variables d'environnement..."
 echo ""
 
+if [ -z "${DATABASE_URL:-}" ]; then
+    echo "❌ DATABASE_URL n'est pas définie dans l'environnement."
+    echo "💡 Exportez votre chaîne de connexion Neon avant d'exécuter ce script."
+    exit 1
+fi
+
 # DATABASE_URL
 echo "1️⃣  Configuration de DATABASE_URL..."
-echo "postgresql://neondb_owner:npg_cRzIrOmJwo38@ep-calm-lab-agkv7stu-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require" | \
+echo "$DATABASE_URL" | \
   vercel env add DATABASE_URL production preview development
 
 # NEXTAUTH_SECRET
@@ -49,7 +55,8 @@ echo "$NEXTAUTH_URL" | vercel env add NEXTAUTH_URL production
 # ADMIN_SECRET_KEY
 echo ""
 echo "4️⃣  Configuration de ADMIN_SECRET_KEY..."
-echo "change-this-in-production" | vercel env add ADMIN_SECRET_KEY production preview development
+ADMIN_SECRET_KEY_VALUE=${ADMIN_SECRET_KEY:-$(openssl rand -hex 32)}
+echo "$ADMIN_SECRET_KEY_VALUE" | vercel env add ADMIN_SECRET_KEY production preview development
 
 echo ""
 echo "✅ Variables d'environnement configurées !"

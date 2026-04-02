@@ -33,8 +33,16 @@ if [ -z "$VERCEL_TOKEN" ]; then
     exit 1
 fi
 
-TEAM_ID="team_CcA0AyPtSPVhRijEsDRmyjpa"
-PROJECT_NAME="neosaas-website"
+TEAM_ID=${TEAM_ID:-"team_CcA0AyPtSPVhRijEsDRmyjpa"}
+PROJECT_NAME=${PROJECT_NAME:-"neosaas-website"}
+DATABASE_URL_VALUE=${DATABASE_URL:-}
+ADMIN_SECRET_KEY_VALUE=${ADMIN_SECRET_KEY:-$(openssl rand -hex 32)}
+
+if [ -z "$DATABASE_URL_VALUE" ]; then
+    echo "❌ DATABASE_URL requis pour configurer Vercel via l'API."
+    echo "💡 Exportez DATABASE_URL avant d'exécuter ce script."
+    exit 1
+fi
 
 echo "🔍 Recherche du projet..."
 
@@ -119,7 +127,7 @@ echo ""
 # DATABASE_URL
 echo "1️⃣  DATABASE_URL"
 add_env_var "DATABASE_URL" \
-  "postgresql://neondb_owner:npg_cRzIrOmJwo38@ep-calm-lab-agkv7stu-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require" \
+  "$DATABASE_URL_VALUE" \
   "preview"
 
 # NEXTAUTH_SECRET
@@ -132,7 +140,7 @@ add_env_var "NEXTAUTH_SECRET" "$NEXTAUTH_SECRET" "preview"
 # ADMIN_SECRET_KEY
 echo ""
 echo "3️⃣  ADMIN_SECRET_KEY"
-add_env_var "ADMIN_SECRET_KEY" "change-this-in-production" "preview"
+add_env_var "ADMIN_SECRET_KEY" "$ADMIN_SECRET_KEY_VALUE" "preview"
 
 echo ""
 echo "✅ Configuration terminée !"
