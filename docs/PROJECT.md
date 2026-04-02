@@ -341,6 +341,15 @@ pnpm db:studio     # Open Drizzle Studio (visual DB browser)
 ## Changelog
 
 ### [2026-04-02]
+- **Loading states & skeleton pour tout le dashboard**: ajout de `loading.tsx` avec skeletons adaptes pour `/dashboard`, `/dashboard/api-keys`, `/dashboard/deployments`, `/dashboard/github`, `/dashboard/projects-pm` et `/dashboard/costs`. Fini les pages blanches pendant le chargement.
+- **Test de connexion par service API**: nouveau composant `ServiceTestButton` client-side qui appelle `POST /api/services/[service]/test` et affiche spinner/succes/echec en temps reel.
+- **Zoho test reel**: le test Zoho echange maintenant le refresh token via OAuth et verifie le portal ID au lieu de juste valider le format.
+- **Section onboarding Zoho**: guide pas-a-pas affiche sur la page API keys quand Zoho n'est pas configure (admin uniquement).
+- **Documentation SYNC_RULES.md**: nouveau document decrivant les regles de synchronisation, loading states, resolution de credentials, test par service et configuration Zoho.
+- **Fichiers modifies**: `app/(private)/dashboard/loading.tsx`, `app/(private)/dashboard/api-keys/loading.tsx`, `app/(private)/dashboard/deployments/loading.tsx`, `app/(private)/dashboard/github/loading.tsx`, `app/(private)/dashboard/projects-pm/loading.tsx`, `app/(private)/dashboard/costs/loading.tsx`, `app/(private)/dashboard/api-keys/page.tsx`, `app/(private)/dashboard/api-keys/service-test-button.tsx`, `app/api/services/[service]/test/route.ts`, `docs/SYNC_RULES.md`
+- **Impact**: l'UX de chargement est fluide (skeleton au lieu de page blanche), chaque service peut etre teste individuellement depuis la page API keys, et Zoho dispose d'un guide d'onboarding et d'un test de connexion reel.
+
+### [2026-04-02]
 - **Service sync connection fix**: the cockpit and service clients now read the saved NeoBridge credentials from both `service_api_configs` and the legacy admin keys store, and Zoho is no longer blocked by env-only detection.
 - **Files modified**: `lib/vercel/client.ts`, `lib/github/client.ts`, `lib/railway/client.ts`, `lib/zoho.ts`, `lib/zoho-data.ts`, `app/(private)/dashboard/api-keys/page.tsx`, `app/(private)/dashboard/page.tsx`
 - **Impact**: configured services can now surface real synchronization state in the cockpit instead of staying invisible when the keys already exist in the admin configuration.

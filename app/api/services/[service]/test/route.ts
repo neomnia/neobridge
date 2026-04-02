@@ -231,8 +231,43 @@ export async function POST(
             break
 
           case 'zoho':
-            if (!testConfig.config?.clientId || !testConfig.config?.refreshToken) throw new Error("Client ID et Refresh Token requis")
-            result = { success: true, message: 'Credentials Zoho format OK — connexion vérifiée au prochain refresh token' }
+            if (!testConfig.config?.clientId || !testConfig.config?.clientSecret || !testConfig.config?.refreshToken) {
+              throw new Error("Client ID, Client Secret et Refresh Token requis")
+            }
+            {
+              // Attempt to exchange refresh token for an access token
+              const zohoTokenUrl = 'https://accounts.zoho.com/oauth/v2/token'
+              const zohoParams = new URLSearchParams({
+                grant_type: 'refresh_token',
+                client_id: testConfig.config.clientId,
+                client_secret: testConfig.config.clientSecret,
+                refresh_token: testConfig.config.refreshToken,
+              })
+              const zohoRes = await fetch(zohoTokenUrl, { method: 'POST', body: zohoParams })
+              const zohoData = await zohoRes.json()
+              if (!zohoRes.ok || zohoData.error) {
+                throw new Error(`OAuth Zoho échoué : ${zohoData.error || 'réponse ' + zohoRes.status}`)
+              }
+              if (!zohoData.access_token) {
+                throw new Error('Zoho n\'a pas retourné d\'access token — vérifiez le Refresh Token')
+              }
+              // If portal ID provided, verify it lists projects
+              const portalId = testConfig.config?.portalId
+              if (portalId) {
+                const projectsRes = await fetch(
+                  `https://projectsapi.zoho.com/restapi/portal/${portalId}/projects/?range=1&index=0`,
+                  { headers: { 'Authorization': `Zoho-oauthtoken ${zohoData.access_token}` } }
+                )
+                if (!projectsRes.ok) {
+                  throw new Error(`Portal ID invalide ou sans accès Projects (${projectsRes.status})`)
+                }
+                const projectsData = await projectsRes.json()
+                const projectCount = projectsData.projects?.length ?? 0
+                result = { success: true, message: `Zoho Projects connecté ✓ Portal ${portalId} — ${projectCount} projet(s) visibles` }
+              } else {
+                result = { success: true, message: 'Zoho OAuth valide ✓ — ajoutez le Portal ID pour lister les projets' }
+              }
+            }
             break
 
           case 'temporal':

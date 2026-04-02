@@ -5,7 +5,8 @@ import { adminApiKeys, serviceApiConfigs } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Key, CheckCircle2, XCircle, ExternalLink, Settings2, Zap } from 'lucide-react'
+import { Key, CheckCircle2, XCircle, ExternalLink, Settings2, Zap, AlertCircle } from 'lucide-react'
+import { ServiceTestButton } from './service-test-button'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -18,10 +19,17 @@ const NEOBRIDGE_SERVICES = [
   { id: 'github_token', name: 'GitHub Token', description: 'Accès repos, branches et PRs', category: '🚀 Infrastructure', docs: 'https://docs.github.com/en/authentication' },
   { id: 'railway', name: 'Railway', description: 'Services backend et workflows', category: '🚀 Infrastructure', docs: 'https://docs.railway.app' },
   { id: 'neon', name: 'Neon', description: 'Base de données PostgreSQL et monitoring', category: '🚀 Infrastructure', docs: 'https://neon.tech/docs/reference/api-reference' },
-  { id: 'zoho', name: 'Zoho Projects', description: 'Tâches, jalons, bugs et suivi PM', category: '📋 Project Management', docs: 'https://www.zoho.com/projects/help/rest-api/zohoprojectsapi.html' },
+  { id: 'zoho', name: 'Zoho Projects', description: 'Tâches, jalons, bugs et suivi PM — nécessite Client ID, Client Secret, Refresh Token et Portal ID', category: '📋 Project Management', docs: 'https://www.zoho.com/projects/help/rest-api/zohoprojectsapi.html' },
   { id: 'notion', name: 'Notion', description: 'Documentation produit et spécifications', category: '📋 Project Management', docs: 'https://developers.notion.com' },
   { id: 'temporal', name: 'Temporal', description: 'Workflows durables et orchestration', category: '⚙️ Orchestration', docs: 'https://docs.temporal.io' },
 ] as const
+
+const ZOHO_SETUP_STEPS = [
+  `Cr\u00e9er un Self Client dans console.zoho.com \u2192 API Console`,
+  `G\u00e9n\u00e9rer un code d\u2019autorisation pour le scope ZohoProjects.projects.READ,ZohoProjects.tasks.READ`,
+  `\u00c9changer le code contre un Refresh Token`,
+  `Renseigner Client ID, Client Secret, Refresh Token et Portal ID dans Admin \u2192 API`,
+]
 
 function groupByCategory(services: typeof NEOBRIDGE_SERVICES) {
   const map = new Map<string, typeof NEOBRIDGE_SERVICES[number][]>()
@@ -37,10 +45,15 @@ export default async function ApiKeysPage() {
   const userIsAdmin = await isAdmin(user.userId)
 
   const statusMap = new Map<string, boolean>()
+  const lastTestedMap = new Map<string, Date | null>()
   try {
     const [rows, legacyRows] = await Promise.all([
       db
-        .select({ serviceName: serviceApiConfigs.serviceName, isActive: serviceApiConfigs.isActive })
+        .select({
+          serviceName: serviceApiConfigs.serviceName,
+          isActive: serviceApiConfigs.isActive,
+          lastTestedAt: serviceApiConfigs.lastTestedAt,
+        })
         .from(serviceApiConfigs)
         .where(eq(serviceApiConfigs.environment, 'production')),
       db.select({ type: adminApiKeys.type }).from(adminApiKeys),
@@ -49,6 +62,9 @@ export default async function ApiKeysPage() {
     for (const row of rows) {
       const normalizedName = row.serviceName === 'github_api' ? 'github_token' : row.serviceName
       statusMap.set(normalizedName, row.isActive)
+      if (row.lastTestedAt) {
+        lastTestedMap.set(normalizedName, new Date(row.lastTestedAt))
+      }
     }
 
     for (const row of legacyRows) {
@@ -100,36 +116,75 @@ export default async function ApiKeysPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {services.map((service) => {
               const active = statusMap.get(service.id) ?? false
+              const lastTested = lastTestedMap.get(service.id)
               return (
-                <div key={service.id} className="rounded-xl border bg-card p-4 flex items-start gap-3 hover:border-brand/40 transition-colors">
-                  <div className="mt-0.5 shrink-0">
-                    {active ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-muted-foreground/50" />}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">{service.name}</span>
-                      <Badge variant={active ? 'default' : 'outline'} className="text-[10px] px-1.5 py-0">
-                        {active ? 'Connecté' : 'Non configuré'}
-                      </Badge>
+                <div key={service.id} className="rounded-xl border bg-card p-4 flex flex-col gap-3 hover:border-brand/40 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 shrink-0">
+                      {active ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-muted-foreground/50" />}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{service.description}</p>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm">{service.name}</span>
+                        <Badge variant={active ? 'default' : 'outline'} className="text-[10px] px-1.5 py-0">
+                          {active ? 'Connecté' : 'Non configuré'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{service.description}</p>
+                      {lastTested && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-1">
+                          Dernier test : {lastTested.toLocaleDateString('fr-FR')}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <a href={service.docs} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors" title="Documentation">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      {userIsAdmin && (
+                        <Link href="/admin/api" title="Configurer">
+                          <Zap className="h-3.5 w-3.5 text-muted-foreground hover:text-brand transition-colors" />
+                        </Link>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex flex-col gap-1 shrink-0">
-                    <a href={service.docs} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors" title="Documentation">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                    {userIsAdmin && (
-                      <Link href="/admin/api" title="Configurer">
-                        <Zap className="h-3.5 w-3.5 text-muted-foreground hover:text-brand transition-colors" />
-                      </Link>
-                    )}
-                  </div>
+                  {active && (
+                    <div className="pl-8">
+                      <ServiceTestButton serviceId={service.id} serviceName={service.name} />
+                    </div>
+                  )}
                 </div>
               )
             })}
           </div>
+
+          {/* Zoho onboarding helper */}
+          {category === '📋 Project Management' && !statusMap.get('zoho') && userIsAdmin && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-300">Configuration Zoho Projects</p>
+                  <ol className="mt-2 space-y-1 text-amber-700 dark:text-amber-400 list-decimal list-inside">
+                    {ZOHO_SETUP_STEPS.map((step, i) => (
+                      <li key={i}>{step}</li>
+                    ))}
+                  </ol>
+                  <div className="mt-3 flex gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/admin/api">Configurer maintenant</Link>
+                    </Button>
+                    <Button asChild variant="ghost" size="sm">
+                      <a href="https://www.zoho.com/projects/help/rest-api/zohoprojectsapi.html" target="_blank" rel="noreferrer">Documentation Zoho</a>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ))}
 

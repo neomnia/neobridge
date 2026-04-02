@@ -9,6 +9,20 @@
 
 ## 🚨 Corrections Récentes
 
+### 2 avril 2026 - Loading states, test par service et onboarding Zoho
+
+**Contexte** : les pages du cockpit affichaient une page blanche pendant le chargement serveur, et il manquait un moyen de tester chaque service API individuellement.
+
+**Changements** :
+
+- ✅ `loading.tsx` (skeletons) ajoutés pour `/dashboard`, `/api-keys`, `/deployments`, `/github`, `/projects-pm` et `/costs`
+- ✅ bouton "Tester la connexion" par service sur la page API keys (`ServiceTestButton`)
+- ✅ test Zoho réel : échange OAuth du refresh token + vérification du portal
+- ✅ guide d'onboarding Zoho (4 étapes) affiché quand non configuré
+- ✅ documentation `docs/SYNC_RULES.md` créée (loading states, credentials, tests, Zoho)
+
+**Impact** : plus de page blanche au chargement, chaque service peut être testé en 1 clic, Zoho est mieux guidé pour la configuration initiale.
+
 ### 2 avril 2026 - Connexion des services recâblée sur les vraies clés NeoBridge
 
 **Contexte** : malgré les clés API déjà enregistrées côté admin, le cockpit et certaines intégrations continuaient à n’afficher aucune synchronisation visible.
