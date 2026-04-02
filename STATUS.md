@@ -9,6 +9,29 @@
 
 ## 🚨 Corrections Récentes
 
+### 2 avril 2026 - Couche GitHub ajoutée au cockpit NeoBridge
+
+**Contexte** : la vue globale `/dashboard` devait aussi remonter les repositories GitHub gérés, les derniers pushes/modifications et un accès direct à la page qui centralise le pilotage Git.
+
+**Changements** :
+
+- ✅ **Client GitHub dédié** : nouveau `lib/github/client.ts` pour lire les repositories visibles via le token GitHub enregistré dans NeoBridge.
+- ✅ **Vue globale GitHub** : nouvelle page `app/(private)/dashboard/github/page.tsx` avec liste des repos, derniers mouvements et indication `Lié` / `Non lié` vers les projets NeoBridge.
+- ✅ **Dashboard enrichi** : `/dashboard` agrège maintenant les dernières activités GitHub et expose la couverture GitHub au même niveau que Vercel, Zoho et Railway.
+- ✅ **Navigation mise à jour** : la sidebar et la vue PM globale rendent désormais la couche GitHub visible dans le cockpit restored.
+
+**Fichiers modifiés** :
+
+- `lib/github/client.ts`
+- `app/(private)/dashboard/github/page.tsx`
+- `app/(private)/dashboard/page.tsx`
+- `app/(private)/dashboard/projects-pm/page.tsx`
+- `components/layout/private-dashboard/sidebar.tsx`
+- `docs/PROJECT.md`
+- `STATUS.md`
+
+**Impact** : le cockpit NeoBridge couvre maintenant aussi le patrimoine GitHub géré et rapproche chaque repo de son projet maître quand un connecteur GitHub existe.
+
 ### 2 avril 2026 - Écart validé entre la spec Notion et le dépôt `synchrozoho`
 
 **Contexte** : Vérification demandée après constat d’une régression fonctionnelle visible en preview : plus de cockpit global exploitable, plus de projets affichés, plus de synchronisation Zoho/Vercel apparente.

@@ -17,6 +17,7 @@ import {
   Server,
   Workflow,
 } from 'lucide-react'
+import { extractGitHubRepoReferences, listRecentGitHubActivity } from '@/lib/github/client'
 import { listRailwayProjects } from '@/lib/railway/client'
 import { listVercelDeployments, listVercelTeams } from '@/lib/vercel/client'
 
@@ -38,6 +39,7 @@ interface RecentProject {
   updatedAt: Date | null
   status: string
   hasVercel: boolean
+  hasGithub: boolean
   hasZoho: boolean
   hasRailway: boolean
 }
@@ -48,7 +50,7 @@ interface ActivityItem {
   subtitle: string
   href: string
   timestamp: Date | null
-  source: 'vercel' | 'railway' | 'project'
+  source: 'vercel' | 'github' | 'railway' | 'project'
   state: string
 }
 
@@ -68,6 +70,7 @@ const STATE_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destr
   READY: 'default',
   ERROR: 'destructive',
   BUILDING: 'secondary',
+  PUSHED: 'default',
   UPDATED: 'secondary',
   LINKED: 'outline',
 }
@@ -82,6 +85,7 @@ async function fetchDashboardData(): Promise<{
   totalProjects: number
   activeServices: number
   projectsWithVercel: number
+  projectsWithGithub: number
   projectsWithZoho: number
   projectsWithRailway: number
   recentProjects: RecentProject[]
@@ -112,6 +116,7 @@ async function fetchDashboardData(): Promise<{
         projectId: projectConnectors.projectId,
         type: projectConnectors.type,
         label: projectConnectors.label,
+        config: projectConnectors.config,
       }).from(projectConnectors),
       db.select({ id: serviceApiConfigs.id }).from(serviceApiConfigs).where(eq(serviceApiConfigs.isActive, true)),
     ])
@@ -150,6 +155,7 @@ async function fetchDashboardData(): Promise<{
         updatedAt: project.updatedAt ? new Date(project.updatedAt) : null,
         status: project.status,
         hasVercel: apps.some((app) => app.platform === 'vercel') || connectors.some((connector) => connector.type === 'vercel'),
+        hasGithub: connectors.some((connector) => connector.type === 'github'),
         hasZoho: connectors.some((connector) => connector.type === 'zoho'),
         hasRailway: apps.some((app) => app.platform === 'railway') || connectors.some((connector) => connector.type === 'railway'),
       }
@@ -161,6 +167,7 @@ async function fetchDashboardData(): Promise<{
       .slice(0, 5)
 
     const projectsWithVercel = projectSnapshots.filter((project) => project.hasVercel).length
+    const projectsWithGithub = projectSnapshots.filter((project) => project.hasGithub).length
     const projectsWithZoho = projectSnapshots.filter((project) => project.hasZoho).length
     const projectsWithRailway = projectSnapshots.filter((project) => project.hasRailway).length
 
@@ -172,6 +179,22 @@ async function fetchDashboardData(): Promise<{
     const linkedProjectByName = new Map(
       appRows.map((app) => [app.name.toLowerCase(), app.projectId]),
     )
+    const linkedProjectByGithubRef = new Map<string, string>()
+
+    for (const connector of connectorRows.filter((connector) => connector.type === 'github')) {
+      for (const ref of extractGitHubRepoReferences({ label: connector.label, config: connector.config })) {
+        if (!linkedProjectByGithubRef.has(ref)) {
+          linkedProjectByGithubRef.set(ref, connector.projectId)
+        }
+      }
+    }
+
+    for (const project of projectRows) {
+      const projectRef = project.name.trim().toLowerCase()
+      if (projectRef && !linkedProjectByGithubRef.has(projectRef)) {
+        linkedProjectByGithubRef.set(projectRef, project.id)
+      }
+    }
 
     let recentActivity: ActivityItem[] = recentProjects.map((project) => ({
       id: `project-${project.id}`,
@@ -225,6 +248,30 @@ async function fetchDashboardData(): Promise<{
       // Railway not configured or unreachable
     }
 
+    try {
+      const githubActivity = await listRecentGitHubActivity({ limit: 5 })
+      recentActivity = recentActivity.concat(
+        githubActivity.map((activity) => {
+          const linkedProjectId = linkedProjectByGithubRef.get(activity.fullName.toLowerCase()) || linkedProjectByGithubRef.get(activity.repoName.toLowerCase())
+          const linkedProject = projectSnapshots.find((project) => project.id === linkedProjectId)
+
+          return {
+            id: `github-${activity.id}`,
+            title: activity.fullName,
+            subtitle: activity.state === 'PUSHED'
+              ? `GitHub · push sur ${activity.branch ?? 'default'}`
+              : `GitHub · dépôt mis à jour`,
+            href: linkedProject?.href ?? '/dashboard/github',
+            timestamp: new Date(activity.timestamp),
+            source: 'github' as const,
+            state: activity.state,
+          }
+        }),
+      )
+    } catch {
+      // GitHub not configured or unreachable
+    }
+
     recentActivity = recentActivity
       .sort((a, b) => (b.timestamp?.getTime() ?? 0) - (a.timestamp?.getTime() ?? 0))
       .slice(0, 8)
@@ -240,6 +287,7 @@ async function fetchDashboardData(): Promise<{
       totalProjects: projectRows.length,
       activeServices: serviceRows.length,
       projectsWithVercel,
+      projectsWithGithub,
       projectsWithZoho,
       projectsWithRailway,
       recentProjects,
@@ -251,6 +299,7 @@ async function fetchDashboardData(): Promise<{
       totalProjects: 0,
       activeServices: 0,
       projectsWithVercel: 0,
+      projectsWithGithub: 0,
       projectsWithZoho: 0,
       projectsWithRailway: 0,
       recentProjects: [],
@@ -265,6 +314,7 @@ export default async function DashboardPage() {
     totalProjects,
     activeServices,
     projectsWithVercel,
+    projectsWithGithub,
     projectsWithZoho,
     projectsWithRailway,
     recentProjects,
@@ -287,6 +337,12 @@ export default async function DashboardPage() {
             <Link href="/dashboard/projects-pm">
               <FolderKanban className="h-4 w-4 mr-2" />
               Gestion PM
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/dashboard/github">
+              <GitBranch className="h-4 w-4 mr-2" />
+              GitHub
             </Link>
           </Button>
           <Button asChild variant="outline">
@@ -364,6 +420,13 @@ export default async function DashboardPage() {
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
+                <p className="font-medium text-sm">Projets reliés à GitHub</p>
+                <p className="text-xs text-muted-foreground">Repos, pushes et modifications</p>
+              </div>
+              <Badge variant="secondary">{projectsWithGithub}/{totalProjects || 0}</Badge>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
                 <p className="font-medium text-sm">Projets reliés à Zoho</p>
                 <p className="text-xs text-muted-foreground">Suivi PM & tickets</p>
               </div>
@@ -376,7 +439,10 @@ export default async function DashboardPage() {
               </div>
               <Badge variant="outline">{projectsWithRailway}/{totalProjects || 0}</Badge>
             </div>
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+              <Button asChild variant="outline" size="sm">
+                <Link href="/dashboard/github">Voir GitHub</Link>
+              </Button>
               <Button asChild variant="outline" size="sm">
                 <Link href="/dashboard/costs">Voir les coûts</Link>
               </Button>
@@ -411,6 +477,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="flex flex-wrap gap-2 mt-3">
                     <Badge variant={project.hasVercel ? 'default' : 'outline'}>Vercel</Badge>
+                    <Badge variant={project.hasGithub ? 'default' : 'outline'}>GitHub</Badge>
                     <Badge variant={project.hasZoho ? 'secondary' : 'outline'}>Zoho</Badge>
                     <Badge variant={project.hasRailway ? 'secondary' : 'outline'}>Railway</Badge>
                   </div>
@@ -453,7 +520,7 @@ export default async function DashboardPage() {
       <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground flex items-start gap-3">
         <GitBranch className="h-4 w-4 mt-0.5 shrink-0" />
         <p>
-          Ce cockpit agrège les derniers mouvements de production et pointe vers les pages spécialisées pour agir : <Link href="/dashboard/deployments" className="underline underline-offset-2">déploiements</Link>, <Link href="/dashboard/costs" className="underline underline-offset-2">coûts</Link>, <Link href="/dashboard/projects-pm" className="underline underline-offset-2">gestion PM</Link> et <Link href="/dashboard/api-keys" className="underline underline-offset-2">connectivité API</Link>.
+          Ce cockpit agrège les derniers mouvements de production et pointe vers les pages spécialisées pour agir : <Link href="/dashboard/deployments" className="underline underline-offset-2">déploiements</Link>, <Link href="/dashboard/github" className="underline underline-offset-2">GitHub</Link>, <Link href="/dashboard/costs" className="underline underline-offset-2">coûts</Link>, <Link href="/dashboard/projects-pm" className="underline underline-offset-2">gestion PM</Link> et <Link href="/dashboard/api-keys" className="underline underline-offset-2">connectivité API</Link>.
         </p>
       </div>
     </div>

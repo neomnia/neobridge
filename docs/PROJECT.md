@@ -341,6 +341,11 @@ pnpm db:studio     # Open Drizzle Studio (visual DB browser)
 ## Changelog
 
 ### [2026-04-02]
+- **GitHub layer added to the global cockpit**: introduced a dedicated `/dashboard/github` page, added recent Git pushes/updates to `/dashboard`, exposed GitHub coverage in the production cockpit, and surfaced GitHub linkage in the global PM view.
+- **Files modified**: `lib/github/client.ts`, `app/(private)/dashboard/github/page.tsx`, `app/(private)/dashboard/page.tsx`, `app/(private)/dashboard/projects-pm/page.tsx`, `components/layout/private-dashboard/sidebar.tsx`
+- **Impact**: NeoBridge now centralizes repository visibility alongside Vercel/Railway/Zoho and highlights which Git repositories are already tied to a NeoBridge master project.
+
+### [2026-04-02]
 - **Branch diagnostic for project visibility**: compared `synchrozoho`, `correction-erreurs`, and `claude/reconnect-zoho-integration-ESxWW`; the empty `/dashboard/[teamId]` screen matches the older `synchrozoho` flow, while the richer dynamic module menu is present on the newer branches and only activates for an active project route.
 - **Files referenced**: `app/(private)/dashboard/[teamId]/page.tsx`, `components/layout/private-dashboard/sidebar.tsx`, `lib/zoho-data.ts`, `docs/PROJECT.md`
 - **Impact**: the current screenshot is now explained: without synced NeoBridge projects / Zoho mapping / project route context, the UI stays on the team-level empty state and does not expose the project submenu.

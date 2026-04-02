@@ -40,6 +40,7 @@ async function fetchProjectsCockpit() {
           teamName: team?.name ?? 'Sans équipe',
           teamSlug: team?.slug ?? null,
           hasVercel: relatedApps.some((app) => app.platform === 'vercel') || relatedConnectors.some((connector) => connector.type === 'vercel'),
+          hasGithub: relatedConnectors.some((connector) => connector.type === 'github'),
           hasZoho: relatedConnectors.some((connector) => connector.type === 'zoho'),
           hasRailway: relatedApps.some((app) => app.platform === 'railway') || relatedConnectors.some((connector) => connector.type === 'railway'),
           resourceCount: relatedApps.length + relatedConnectors.length,
@@ -68,7 +69,7 @@ export default async function ProjectsPmPage() {
           <div>
             <h1 className="text-2xl font-bold">Gestion de projets</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              Cockpit global NeoBridge pour relier workspaces, Vercel et Zoho
+              Cockpit global NeoBridge pour relier workspaces, Vercel, GitHub et Zoho
             </p>
           </div>
         </div>
@@ -145,6 +146,7 @@ export default async function ProjectsPmPage() {
                         ) : null}
                         <div className="flex flex-wrap gap-2">
                           <Badge variant={project.hasVercel ? 'default' : 'outline'}>Vercel</Badge>
+                          <Badge variant={project.hasGithub ? 'default' : 'outline'}>GitHub</Badge>
                           <Badge variant={project.hasZoho ? 'default' : 'outline'}>Zoho</Badge>
                           <Badge variant={project.hasRailway ? 'secondary' : 'outline'}>Railway</Badge>
                           <Badge variant="secondary">{project.resourceCount} ressource{project.resourceCount !== 1 ? 's' : ''}</Badge>
@@ -162,7 +164,7 @@ export default async function ProjectsPmPage() {
       <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground flex items-start gap-3">
         <BarChart3 className="h-4 w-4 mt-0.5 shrink-0" />
         <p>
-          NeoBridge reste la source de vérité. Vercel et Zoho alimentent la vue globale, mais les décisions de liaison et d’orchestration se font ici.
+          NeoBridge reste la source de vérité. Vercel, GitHub et Zoho alimentent la vue globale, mais les décisions de liaison et d’orchestration se font ici.
         </p>
       </div>
     </div>
