@@ -216,12 +216,16 @@ async function fetchDashboardData(): Promise<{
       state: 'UPDATED',
     }))
 
-    // Paralléliser les 3 appels API externes avec timeout (5s max chacun)
-    const withTimeout = <T,>(promise: Promise<T>, ms = 5000): Promise<T> =>
+    // Paralléliser les appels API externes — SKIP si le service n'est pas configuré
+    const withTimeout = <T,>(promise: Promise<T>, ms = 3000): Promise<T> =>
       Promise.race([promise, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))])
 
+    const hasVercelService = activeServiceNames.has('vercel')
+    const hasRailwayService = activeServiceNames.has('railway')
+    const hasGithubService = activeServiceNames.has('github_token') || activeServiceNames.has('github_app')
+
     const [vercelResult, railwayResult, githubResult] = await Promise.allSettled([
-      withTimeout(async function fetchVercel() {
+      hasVercelService ? withTimeout(async function fetchVercel() {
         const vercelTeams = await listVercelTeams()
         const deploymentGroups = await Promise.all(
           vercelTeams.slice(0, 5).map(async (team) => {
@@ -242,9 +246,9 @@ async function fetchDashboardData(): Promise<{
           }),
         )
         return deploymentGroups.flat()
-      }()),
+      }()) : Promise.resolve([]),
 
-      withTimeout(async function fetchRailway() {
+      hasRailwayService ? withTimeout(async function fetchRailway() {
         const railwayProjects = await listRailwayProjects()
         return railwayProjects.slice(0, 3).map((project) => ({
           id: `railway-${project.id}`,
@@ -255,9 +259,9 @@ async function fetchDashboardData(): Promise<{
           source: 'railway' as const,
           state: 'LINKED',
         }))
-      }()),
+      }()) : Promise.resolve([]),
 
-      withTimeout(async function fetchGitHub() {
+      hasGithubService ? withTimeout(async function fetchGitHub() {
         const githubActivity = await listRecentGitHubActivity({ limit: 5 })
         return githubActivity.map((activity) => {
           const linkedProjectId = linkedProjectByGithubRef.get(activity.fullName.toLowerCase()) || linkedProjectByGithubRef.get(activity.repoName.toLowerCase())
@@ -274,7 +278,7 @@ async function fetchDashboardData(): Promise<{
             state: activity.state,
           }
         })
-      }()),
+      }()) : Promise.resolve([]),
     ])
 
     if (vercelResult.status === 'fulfilled') recentActivity = recentActivity.concat(vercelResult.value)
