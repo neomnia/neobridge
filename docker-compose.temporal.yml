@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: temporal-postgres
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    ports:
+      - "5433:5432"
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongodb:
+    image: mongo:7
+    container_name: neobridge-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: neobridge
+      MONGO_INITDB_ROOT_PASSWORD: neobridge
+      MONGO_INITDB_DATABASE: neobridge_ai
+    ports:
+      - "27018:27017"
+    volumes:
+      - neobridge-mongo-data:/data/db
+
+  temporal:
+    image: temporalio/auto-setup:1.30.2
+    container_name: temporal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_SEEDS: postgres
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_DB: temporal
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+      ENABLE_ES: "false"
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:2.39.0
+    container_name: temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8233:8080"
+
+volumes:
+  temporal-postgres-data:
+  neobridge-mongo-data:

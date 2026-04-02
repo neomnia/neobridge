@@ -1,0 +1,15 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "command": true,
+        "railway": true,
+        "pnpm": true,
+        "/^which node; which npm; node -v \\|\\| true; npm -v \\|\\| true$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npm install -g @railway/cli$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

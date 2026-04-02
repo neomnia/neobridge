@@ -19,7 +19,7 @@ Ce guide couvre le déploiement complet de NeoSaaS sur Vercel avec :
 - [ ] Compte Vercel ([créer](https://vercel.com/signup))
 - [ ] Compte GitHub
 - [ ] Base de données PostgreSQL production
-- [ ] Credentials services (Email, OAuth, Lago)
+- [ ] Credentials services (Email, OAuth, Stripe, Zoho si utilisé)
 
 ---
 
@@ -68,9 +68,11 @@ RESEND_API_KEY=re_...
 SCALEWAY_SECRET_KEY=...
 SCALEWAY_PROJECT_ID=...
 
-# Lago (optionnel)
-LAGO_API_KEY=...
-LAGO_API_URL=https://api.getlago.com
+# Zoho (optionnel pour NeoBridge)
+ZOHO_CLIENT_ID=...
+ZOHO_CLIENT_SECRET=...
+ZOHO_REFRESH_TOKEN=...
+ZOHO_PORTAL_ID=...
 ```
 
 > **Neon — deux URLs nécessaires** :
@@ -82,6 +84,37 @@ LAGO_API_URL=https://api.getlago.com
 > **Preview & Development** : Si `DATABASE_URL` est absente dans ces environnements, le build continue sans appliquer les migrations (warning non-bloquant). Ajoutez les variables pour activer les migrations sur ces environnements.
 
 **Documentation complète** : [`ENVIRONMENT_VARIABLES.md`](./ENVIRONMENT_VARIABLES.md)
+
+### NeoBridge — équipes Vercel, déploiements et logs
+
+Les points ci-dessous s’alignent sur la documentation officielle Vercel consultée le **2 avril 2026** :
+
+- **Authentification API** : utiliser `Authorization: Bearer <TOKEN>`.
+- **Ressources d’équipe** : pour agir au nom d’une équipe, Vercel recommande d’ajouter `?teamId=<teamId>` aux appels REST (ex. déploiements).
+- **Déploiement** : Vercel supporte Git, CLI, Deploy Hooks et REST API.
+- **Logs** : le dashboard Vercel et `vercel logs` restent les deux points d’entrée de référence pour les incidents preview/production.
+
+Règles NeoBridge :
+- **Synchronisation Teams** : récupérer toutes les équipes accessibles par le token Admin et les proposer comme cibles de liaison, sans imposer qu’un projet NeoBridge ait un équivalent Vercel.
+- **NeoBridge = master** : le projet NeoBridge reste la source de vérité métier. Une suppression côté NeoBridge peut déclencher une suppression Vercel **uniquement après confirmation explicite**.
+- **Validation** : privilégier les previews pour QA, puis promotion/redeploy vers la production après vérification des logs et du résumé de déploiement.
+
+### Logs & diagnostic des erreurs 500
+
+Commandes utiles basées sur la CLI officielle :
+
+```bash
+# Logs récents de la branche ou du projet lié
+vercel logs --since 1h --level error
+
+# Filtrer les erreurs 500 en production
+vercel logs --environment production --status-code 500 --json
+
+# Suivre en direct le dernier déploiement connu
+vercel logs --follow --deployment <deployment-id>
+```
+
+Dans le dashboard : **Project → Deployments → Logs / Resources / Deployment Summary** pour inspecter les fonctions, les erreurs build/runtime et les assets produits.
 
 ### 3. Déployer
 

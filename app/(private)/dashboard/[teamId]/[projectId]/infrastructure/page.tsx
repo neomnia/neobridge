@@ -9,7 +9,7 @@ interface ProjectApp {
   id: string
   name: string
   platform: 'vercel' | 'railway' | 'scaleway' | string
-  credentialSource: 'Admin' | 'Team'
+  credentialSource: 'Admin' | 'Team' | string
   status: 'active' | 'inactive' | 'error'
 }
 
@@ -38,8 +38,19 @@ async function fetchProjectApps(projectId: string): Promise<ProjectApp[]> {
       { cache: 'no-store' },
     )
     if (!res.ok) return []
-    const data: ProjectApp[] = await res.json()
-    return Array.isArray(data) ? data : []
+
+    const payload = await res.json()
+    const rows = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : []
+
+    return rows.map((app) => ({
+      ...app,
+      credentialSource: app.credentialSource === 'team' ? 'Team' : 'Admin',
+      status: app.status ?? 'active',
+    }))
   } catch {
     return []
   }

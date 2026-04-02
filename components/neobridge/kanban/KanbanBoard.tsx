@@ -179,10 +179,27 @@ export function KanbanBoard({ initialTasks, projectId }: KanbanBoardProps) {
   )
 }
 
-export function AddTaskButton({ projectId }: { projectId: string }) {
+export function AddTaskButton({
+  projectId: _projectId,
+  portalId,
+  disabled = false,
+}: {
+  projectId: string
+  portalId?: string | null
+  disabled?: boolean
+}) {
+  if (disabled || !portalId) {
+    return (
+      <Button size="sm" variant="outline" className="gap-1.5" disabled>
+        <Plus className="h-4 w-4" />
+        Nouvelle tâche
+      </Button>
+    )
+  }
+
   return (
     <Button size="sm" variant="outline" className="gap-1.5" asChild>
-      <a href={`https://projects.zoho.eu/portal/${projectId}/`} target="_blank" rel="noopener noreferrer">
+      <a href={`https://projects.zoho.eu/portal/${portalId}/`} target="_blank" rel="noopener noreferrer">
         <Plus className="h-4 w-4" />
         Nouvelle tâche
       </a>

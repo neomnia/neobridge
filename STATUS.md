@@ -9,6 +9,55 @@
 
 ## 🚨 Corrections Récentes
 
+### 2 avril 2026 - Audit NeoBridge : sidebar dynamique, synchro Vercel Teams et incident 500 Zoho
+
+**Contexte** : Reprise du cadrage NeoBridge à partir de la trame officielle et audit de l’architecture actuelle pour remplacer les onglets de pages par une sidebar dynamique. En parallèle, revue des erreurs `500` répétées sur les routes projet/Zoho en preview et en production.
+
+**Constats** :
+
+- ✅ **Navigation actuelle identifiée** : `app/(private)/dashboard/[teamId]/[projectId]/layout.tsx` et `components/layout/private-dashboard/sidebar.tsx` portent aujourd’hui la logique de navigation projet.
+- ✅ **Hiérarchie cible clarifiée** : `global → /dashboard`, `team → /dashboard/[teamId]`, `project → /dashboard/[teamId]/[projectId]/<section>` avec la sidebar comme navigation principale.
+- ✅ **Synchronisation Vercel Teams cadrée** : le token Admin doit lister les équipes accessibles et NeoBridge reste la source de vérité ; la liaison Vercel reste optionnelle par projet.
+- ⚠️ **Piste prioritaire pour les 500 Zoho** : le chargement partagé du layout projet (`getZohoProject`, `listZohoTasks`, `lib/zoho.ts`) doit être sécurisé lorsque `ZOHO_PORTAL_ID` ou les credentials sont incomplets, ou quand le projet NeoBridge n’est pas réellement relié à un projet Zoho.
+
+**Fichiers concernés** :
+
+- `app/(private)/dashboard/[teamId]/[projectId]/layout.tsx`
+- `app/(private)/dashboard/[teamId]/[projectId]/zoho/page.tsx`
+- `components/layout/private-dashboard/sidebar.tsx`
+- `lib/zoho-data.ts`
+- `lib/zoho.ts`
+- `docs/PROJECT.md`
+- `docs/deployment/VERCEL.md`
+
+**Impact** : Le cadre fonctionnel pour la refonte navigation + Vercel est désormais documenté, et l’investigation du bug `500` est recentrée sur le chargement partagé Zoho plutôt que sur l’authentification seule.
+
+### 29 mars 2026 - Preparation Railway: Temporal + Temporal UI + SQL + Mongo
+
+**Contexte** : Mise en place d'une base de deploiement pour rendre Temporal fonctionnel sur Railway dans NeoBridge, avec SQL pour Temporal et MongoDB pour les donnees d'apprentissage agents.
+
+**Changements** :
+
+- ✅ **Runbook Railway ajoute** : nouveau guide `docs/deployment/RAILWAY_TEMPORAL.md` avec etapes de provisioning (Temporal Server, Temporal UI, PostgreSQL, MongoDB, variables d'environnement et verification).
+- ✅ **Stack locale de reference** : ajout de `docker-compose.temporal.yml` (Temporal + UI + PostgreSQL + MongoDB).
+- ✅ **API Temporal renforcee** : support de `TEMPORAL_API_KEY` (Bearer) dans les endpoints start/cancel/status/active.
+- ✅ **Listing workflows actifs** : `app/api/temporal/active/route.ts` interroge maintenant l'API Temporal au lieu d'un placeholder vide.
+- ✅ **Template env complete** : `config/env/env.local.exemple` inclut `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_API_KEY`, `MONGODB_URI`.
+
+**Fichiers modifies** :
+
+- `app/api/temporal/start/route.ts`
+- `app/api/temporal/cancel/route.ts`
+- `app/api/temporal/status/[id]/route.ts`
+- `app/api/temporal/active/route.ts`
+- `docker-compose.temporal.yml` (nouveau)
+- `docs/deployment/RAILWAY_TEMPORAL.md` (nouveau)
+- `docs/PROJECT.md`
+- `config/env/env.local.exemple`
+- `STATUS.md`
+
+**Impact** : NeoBridge dispose d'un parcours deploiement clair pour Temporal sur Railway, avec separation propre des responsabilites entre SQL (Temporal) et MongoDB (apprentissage agents).
+
 ### 23 mars 2026 - Correction Erreur Build Vercel (LogsClient)
 
 **Contexte** : Le déploiement Vercel échouait avec une erreur "Module not found: Can't resolve '@/app/(private)/admin/logs/logs-client'". Le fichier `logs-client.tsx` était manquant alors qu'il était importé dans `app/(private)/admin/settings/page.tsx`.

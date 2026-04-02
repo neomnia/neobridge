@@ -58,7 +58,7 @@ export default function SettingsPage() {
   }
 
   const filteredConnectors = selectedPlatform
-    ? connectors.filter((c) => c.provider === selectedPlatform)
+    ? connectors.filter((c) => c.type === selectedPlatform)
     : connectors
 
   return (

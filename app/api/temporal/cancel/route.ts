@@ -25,12 +25,16 @@ export async function POST(req: NextRequest) {
   try {
     const { TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE } = process.env
     const namespace = TEMPORAL_NAMESPACE ?? "default"
+    const headers: HeadersInit = { "Content-Type": "application/json" }
+    if (process.env.TEMPORAL_API_KEY) {
+      headers.Authorization = `Bearer ${process.env.TEMPORAL_API_KEY}`
+    }
 
     const res = await fetch(
       `${TEMPORAL_ADDRESS}/api/v1/namespaces/${namespace}/workflows/${workflowId}/terminate`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ reason: "User cancelled" }),
       }
     )

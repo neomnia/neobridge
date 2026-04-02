@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { getZohoProject } from '@/lib/zoho-data'
+import { getNeoBridgeProject } from '@/lib/zoho-data'
 import { Server, Shield, Bot, BarChart3, Settings, ChevronRight } from 'lucide-react'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -32,10 +32,10 @@ export default async function ProjectLayout({
   params: Promise<{ teamId: string; projectId: string }>
 }) {
   const { teamId, projectId } = await params
-  const project = await getZohoProject(projectId)
+  const project = await getNeoBridgeProject(projectId, teamId)
   if (!project) notFound()
 
-  const teamName = teamId.charAt(0).toUpperCase() + teamId.slice(1)
+  const teamName = project.teamName ?? teamId.charAt(0).toUpperCase() + teamId.slice(1)
   const base = `/dashboard/${teamId}/${projectId}`
 
   return (

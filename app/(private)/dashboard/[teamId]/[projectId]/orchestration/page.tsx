@@ -1,15 +1,16 @@
 import { AgentConsole } from '@/components/neobridge/agent/AgentConsole'
-import { listZohoProjects } from '@/lib/zoho-data'
+import { listTeamProjects } from '@/lib/zoho-data'
 import { Bot } from 'lucide-react'
 
 export const metadata = { title: 'Orchestration — NeoBridge' }
 
 export default async function OrchestrationPage({
-  params: _params,
+  params,
 }: {
   params: Promise<{ teamId: string; projectId: string }>
 }) {
-  const projects = await listZohoProjects()
+  const { teamId } = await params
+  const projects = await listTeamProjects(teamId)
 
   return (
     <div className="flex flex-col h-full space-y-4">

@@ -63,10 +63,14 @@ export async function GET(
   try {
     const { TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE } = process.env
     const namespace = TEMPORAL_NAMESPACE ?? "default"
+    const headers: HeadersInit = { "Content-Type": "application/json" }
+    if (process.env.TEMPORAL_API_KEY) {
+      headers.Authorization = `Bearer ${process.env.TEMPORAL_API_KEY}`
+    }
 
     const res = await fetch(
       `${TEMPORAL_ADDRESS}/api/v1/namespaces/${namespace}/workflows/${workflowId}`,
-      { method: "GET", headers: { "Content-Type": "application/json" } }
+      { method: "GET", headers }
     )
 
     if (!res.ok) {
@@ -75,7 +79,7 @@ export async function GET(
     }
 
     const data = await res.json()
-    const execution = data.workflow_execution_info
+    const execution = data.workflow_execution_info ?? data.execution ?? data
 
     const STATUS_MAP: Record<string, string> = {
       WORKFLOW_EXECUTION_STATUS_RUNNING: "RUNNING",
@@ -89,9 +93,9 @@ export async function GET(
 
     return NextResponse.json({
       workflowId,
-      status: STATUS_MAP[execution?.status] ?? "UNKNOWN",
-      startTime: execution?.start_time,
-      endTime: execution?.close_time,
+      status: STATUS_MAP[execution?.status] ?? execution?.status ?? "UNKNOWN",
+      startTime: execution?.start_time ?? execution?.startTime,
+      endTime: execution?.close_time ?? execution?.closeTime,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

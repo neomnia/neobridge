@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
   try {
     const { TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE } = process.env
     const namespace = TEMPORAL_NAMESPACE ?? "default"
+    const headers: HeadersInit = { "Content-Type": "application/json" }
+    if (process.env.TEMPORAL_API_KEY) {
+      headers.Authorization = `Bearer ${process.env.TEMPORAL_API_KEY}`
+    }
     const workflowId = `${body.workflow}-${user.userId}-${Date.now()}`
 
     // Temporal Cloud HTTP API: start workflow execution
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
       `${TEMPORAL_ADDRESS}/api/v1/namespaces/${namespace}/workflows`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           workflow_id: workflowId,
           workflow_type: { name: body.workflow },

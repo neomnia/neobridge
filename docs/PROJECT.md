@@ -27,10 +27,10 @@ NeoSaaS is a full-stack multi-tenant SaaS boilerplate built with Next.js 15 App 
 | Database | PostgreSQL (Drizzle ORM) |
 | UI | Tailwind CSS 3.4 + shadcn/ui (Radix UI) |
 | Auth | JWT + OAuth (Google, GitHub, Microsoft, Facebook) |
-| Payments | Stripe + Lago |
+| Payments | Stripe Direct (legacy Lago references still being cleaned up) |
 | Email | Multi-provider (Scaleway TEM, AWS SES, Resend) |
 | Package manager | pnpm |
-| Deployment | Vercel / Docker |
+| Deployment | Vercel / Docker / Railway |
 | E2E Testing | Cypress |
 
 ---
@@ -240,9 +240,34 @@ JSON response → state update
 
 ### Payments
 
-- **Stripe**: one-time payments, subscriptions, webhooks
-- **Lago**: usage-based billing (optional)
+- **Stripe Direct**: one-time payments, subscriptions, invoices, and webhooks
+- Legacy `Lago` references may still appear in historical docs or deprecated routes, but the active billing path is Stripe-only
 - Payment methods stored per company (PCI compliant — no sensitive card data in DB)
+
+### NeoBridge Navigation & Resource Model (April 2026)
+
+- **Primary navigation**: the sidebar is the single entry point. Project pages should no longer expose local tab bars.
+- **Route hierarchy**:
+  - `/dashboard` → global scope
+  - `/dashboard/[teamId]` → team scope
+  - `/dashboard/[teamId]/[projectId]/<section>` → project scope
+- **Project sections** currently map to `infrastructure`, `governance`, `orchestration`, `zoho`, and `settings`.
+- **Vercel linkage is optional**: a NeoBridge project may exist without any Vercel resource attached.
+- **Source of truth**: NeoBridge stays authoritative for project lifecycle. If a NeoBridge project is deleted, any linked Vercel project deletion must be an explicit, confirmed cascade action.
+- **Current schema note**: `project_apps` already stores attached deployment units; if the model expands beyond apps/connectors, the recommended semantic rename is `project_resources`.
+- **Known investigation**: repeated `500` errors on project/Zoho routes are most likely tied to shared loading in `app/(private)/dashboard/[teamId]/[projectId]/layout.tsx`, `lib/zoho-data.ts`, and `lib/zoho.ts`, especially when Zoho credentials or `ZOHO_PORTAL_ID` are incomplete or when the NeoBridge project is not actually mapped to a Zoho project.
+
+### Temporal Orchestration (NeoBridge)
+
+- Temporal endpoints are available under `app/api/temporal/*`.
+- `TEMPORAL_ADDRESS` and `TEMPORAL_NAMESPACE` are required to target a running Temporal cluster.
+- `TEMPORAL_API_KEY` is optional and used as a Bearer token when Temporal is exposed behind an authenticated gateway.
+- For Railway setup, refer to `docs/deployment/RAILWAY_TEMPORAL.md`.
+
+### MongoDB Learning Store
+
+- MongoDB is intended for NeoBridge training/knowledge data only.
+- Temporal persistence and visibility must use a supported backend (PostgreSQL/MySQL/other Temporal-supported stores), not MongoDB.
 
 ---
 
@@ -301,6 +326,13 @@ pnpm db:studio     # Open Drizzle Studio (visual DB browser)
 ```
 
 ---
+
+## Changelog
+
+### [2026-04-02]
+- **NeoBridge navigation and Vercel sync clarified**: documented the official global/team/project routing model, the dynamic sidebar direction, the optional nature of Vercel linkage, and the current investigation path for repeated Zoho-related `500` errors.
+- **Files referenced**: `app/(private)/dashboard/[teamId]/[projectId]/layout.tsx`, `components/layout/private-dashboard/sidebar.tsx`, `lib/zoho-data.ts`, `lib/zoho.ts`, `docs/deployment/VERCEL.md`
+- **Impact**: the product frame is now aligned for the next implementation pass and the production incident triage is better scoped.
 
 ## Getting Started
 
@@ -417,3 +449,9 @@ Use these prefixes in release notes and status updates:
 - **Added versioning model**: SemVer policy, pre-release conventions, and release workflow added.
 - **Files modified**: `docs/PROJECT.md`
 - **Impact**: Standardized release cadence and clearer version communication.
+
+### [2026-03-29]
+
+- **Railway + Temporal documentation update**: Added Railway deployment guidance for Temporal Server, Temporal UI, PostgreSQL, and MongoDB usage boundaries.
+- **Files modified**: `docs/PROJECT.md`, `docs/deployment/RAILWAY_TEMPORAL.md`
+- **Impact**: Clear deployment blueprint for NeoBridge orchestration and agent-learning data separation.

@@ -39,22 +39,43 @@ export async function getZohoAccessToken(): Promise<string> {
   return cachedToken.access_token
 }
 
+interface ZohoFetchConfig {
+  portalId?: string | null
+}
+
 export async function zohoFetch(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  config: ZohoFetchConfig = {},
 ): Promise<Response> {
   const token = await getZohoAccessToken()
-  const portalId = process.env.ZOHO_PORTAL_ID ?? ""
+  const portalId = config.portalId ?? process.env.ZOHO_PORTAL_ID ?? ""
+
+  if (!portalId) {
+    throw new Error("Zoho portal ID not configured")
+  }
 
   const url = `${ZOHO_API_BASE}/portal/${portalId}${path}`
-  return fetch(url, {
+  const headers = new Headers(options.headers ?? {})
+
+  headers.set("Authorization", `Zoho-oauthtoken ${token}`)
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json")
+  }
+
+  const response = await fetch(url, {
     ...options,
-    headers: {
-      Authorization: `Zoho-oauthtoken ${token}`,
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
+    headers,
   })
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => "")
+    throw new Error(
+      `Zoho request failed (${response.status}) for ${path}${details ? `: ${details.slice(0, 200)}` : ""}`,
+    )
+  }
+
+  return response
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
-import { listZohoProjects } from '@/lib/zoho-data'
+import { listTeamProjects } from '@/lib/zoho-data'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -27,7 +27,7 @@ export default async function TeamPage({
   params: Promise<{ teamId: string }>
 }) {
   const { teamId } = await params
-  const projects = await listZohoProjects()
+  const projects = await listTeamProjects(teamId)
 
   return (
     <div className="space-y-6">

@@ -4,9 +4,31 @@
  */
 import { NextRequest, NextResponse } from "next/server"
 import { zohoFetch } from "@/lib/zoho"
+import { getProjectZohoBinding } from "@/lib/zoho-data"
 import { requireAuth } from "@/lib/auth/server"
 
 const MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true"
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+async function resolveZohoTarget(projectId: string) {
+  if (!projectId) {
+    return { zohoProjectId: "", portalId: undefined as string | undefined }
+  }
+
+  const binding = await getProjectZohoBinding(projectId)
+  if (binding?.zohoProjectId) {
+    return {
+      zohoProjectId: binding.zohoProjectId,
+      portalId: binding.portalId ?? undefined,
+    }
+  }
+
+  if (UUID_RE.test(projectId)) {
+    return { zohoProjectId: "", portalId: undefined as string | undefined }
+  }
+
+  return { zohoProjectId: projectId, portalId: undefined as string | undefined }
+}
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -53,10 +75,11 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = req.nextUrl
   const action = searchParams.get("action")
-  const projectId = searchParams.get("projectId") ?? process.env.ZOHO_DEFAULT_PROJECT_ID ?? ""
+  const rawProjectId = searchParams.get("projectId") ?? process.env.ZOHO_DEFAULT_PROJECT_ID ?? ""
+  const { zohoProjectId, portalId } = await resolveZohoTarget(rawProjectId)
 
   if (MOCK || !process.env.ZOHO_CLIENT_ID) {
-    return handleMock(action, projectId)
+    return handleMock(action, zohoProjectId || rawProjectId)
   }
 
   try {
@@ -67,24 +90,36 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(data.projects ?? [])
       }
       case "listTasks": {
-        const res = await zohoFetch(`/projects/${projectId}/tasks/`)
+        if (!zohoProjectId) {
+          return NextResponse.json({ error: "Zoho connector not configured for this NeoBridge project" }, { status: 400 })
+        }
+        const res = await zohoFetch(`/projects/${zohoProjectId}/tasks/`, {}, { portalId })
         const data = await res.json()
         return NextResponse.json(data.tasks ?? [])
       }
       case "listMilestones": {
-        const res = await zohoFetch(`/projects/${projectId}/milestones/`)
+        if (!zohoProjectId) {
+          return NextResponse.json({ error: "Zoho connector not configured for this NeoBridge project" }, { status: 400 })
+        }
+        const res = await zohoFetch(`/projects/${zohoProjectId}/milestones/`, {}, { portalId })
         const data = await res.json()
         return NextResponse.json(data.milestones ?? [])
       }
       case "getProject": {
-        const res = await zohoFetch(`/projects/${projectId}/`)
+        if (!zohoProjectId) {
+          return NextResponse.json({ error: "Zoho connector not configured for this NeoBridge project" }, { status: 400 })
+        }
+        const res = await zohoFetch(`/projects/${zohoProjectId}/`, {}, { portalId })
         const data = await res.json()
         return NextResponse.json(data.projects?.[0] ?? null)
       }
       case "getTask": {
         const taskId = searchParams.get("taskId")
         if (!taskId) return NextResponse.json({ error: "taskId required" }, { status: 400 })
-        const res = await zohoFetch(`/projects/${projectId}/tasks/${taskId}/`)
+        if (!zohoProjectId) {
+          return NextResponse.json({ error: "Zoho connector not configured for this NeoBridge project" }, { status: 400 })
+        }
+        const res = await zohoFetch(`/projects/${zohoProjectId}/tasks/${taskId}/`, {}, { portalId })
         const data = await res.json()
         return NextResponse.json(data.tasks?.[0] ?? null)
       }
@@ -107,7 +142,8 @@ export async function PUT(req: NextRequest) {
 
   const { searchParams } = req.nextUrl
   const action = searchParams.get("action")
-  const projectId = searchParams.get("projectId") ?? process.env.ZOHO_DEFAULT_PROJECT_ID ?? ""
+  const rawProjectId = searchParams.get("projectId") ?? process.env.ZOHO_DEFAULT_PROJECT_ID ?? ""
+  const { zohoProjectId, portalId } = await resolveZohoTarget(rawProjectId)
   const taskId = searchParams.get("taskId")
 
   if (!taskId) return NextResponse.json({ error: "taskId required" }, { status: 400 })
@@ -118,13 +154,16 @@ export async function PUT(req: NextRequest) {
 
   try {
     if (action === "updateTask") {
+      if (!zohoProjectId) {
+        return NextResponse.json({ error: "Zoho connector not configured for this NeoBridge project" }, { status: 400 })
+      }
       const body = await req.json()
       const params = new URLSearchParams(body)
-      const res = await zohoFetch(`/projects/${projectId}/tasks/${taskId}/`, {
+      const res = await zohoFetch(`/projects/${zohoProjectId}/tasks/${taskId}/`, {
         method: "POST", // Zoho uses POST for updates via form params
         body: params,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      })
+      }, { portalId })
       const data = await res.json()
       return NextResponse.json(data)
     }

@@ -13,10 +13,13 @@ import { useZohoEvents } from "@/hooks/use-zoho-events"
 import { Play, Square, Clock, Bot } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
-import { type ZohoProject } from "@/lib/zoho"
+interface AgentProjectOption {
+  id: string
+  name: string
+}
 
 interface AgentConsoleProps {
-  projects: ZohoProject[]
+  projects: AgentProjectOption[]
 }
 
 const MODE_LABELS: Record<AgentMode, string> = {
@@ -60,7 +63,7 @@ export function AgentConsole({ projects }: AgentConsoleProps) {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Projet Zoho</label>
+              <label className="text-xs font-medium text-muted-foreground">Projet NeoBridge</label>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger><SelectValue placeholder="Sélectionner un projet" /></SelectTrigger>
                 <SelectContent>

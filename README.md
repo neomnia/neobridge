@@ -7,7 +7,7 @@
 - 🔐 **Full authentication** — sign-up, login, JWT
 - 🌐 **Social OAuth login** — GitHub & Google (100% database-driven config)
 - 👥 **User management** — multi-tenant, roles and permissions
-- 💳 **Stripe + Lago billing** — subscriptions and invoicing
+- 💳 **Stripe Direct billing** — subscriptions, invoices, and webhooks
 - 📧 **Transactional emails** — Resend, Scaleway TEM, AWS SES
 - 🎨 **Modern UI** — Tailwind CSS + shadcn/ui
 - 📞 **Contact form** — email-based support
@@ -41,7 +41,7 @@ Open http://localhost:3000
 | Database | PostgreSQL (Drizzle ORM) |
 | UI | Tailwind CSS 3.4 + shadcn/ui |
 | Auth | JWT + OAuth (Google, GitHub, Microsoft, Facebook) |
-| Payments | Stripe + Lago |
+| Payments | Stripe Direct |
 | Email | Scaleway TEM / AWS SES / Resend |
 | Package manager | pnpm |
 | Deployment | Vercel / Docker |
